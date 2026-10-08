@@ -18,8 +18,11 @@ def start():
     # options are 1 - addition, 2 - subtraction, 3 - multiplication, 4 - division
     while True:
         try:
-            practice_type_inp = int(input(
-                f"what type of math would you like to practice? {constants.practice_type}:"))
+            practice_type_inp = int(
+                input(
+                    f"what type of math would you like to practice? {constants.practice_type}:"
+                )
+            )
 
             if practice_type_inp in constants.practice_type:
                 print("valid")
@@ -28,9 +31,11 @@ def start():
                 print("Error: you need to select valid choice.")
         except ValueError:
             # Handles cases where the input is not a number (e.g., 'abc')
-        	print("Error: Invalid input. Please enter a whole number.")
+            print("Error: Invalid input. Please enter a whole number.")
 
     # addition.generateQuestion()
+
+
 # numbers = division.generateDivisionQuestion()
 # answer = input(f"Can you tell me what {numbers[0]} / {numbers[1]} equals?")
 

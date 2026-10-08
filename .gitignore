@@ -1,3 +1,15 @@
-#Ignore Cache
+# Virtual environment
+.venv/
+env/
+ENV/
+
+# Python execution caches and compiled bytecode
 **/__pycache__/
 *.py[cod]
+.pytest_cache/
+.coverage
+
+# Packaging and Build artifacts
+build/
+dist/
+*.egg-info/
