@@ -1,2 +1,3 @@
 #Ignore Cache
-__pychache__/
+**/__pycache__/
+*.py[cod]
