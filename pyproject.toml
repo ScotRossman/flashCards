@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flashcardApp"
+version = "0.1.0"
+description = "A versatile flashcard application supporting CLI, GUI, and Web interfaces."
+readme = "README.md"
+authors = [
+    { name = "Scot Rossman", email = "sprossman@gmail.com" }
+]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+
+# Core dependencies used across all versions (CLI, GUI, Web)
+dependencies = [
+    "click>=8.0.0",      # Excellent for building the CLI
+    "pydantic>=2.0.0",   # Great for data validation/flashcard schemas
+]
+
+[project.optional-dependencies]
+# Extra dependencies for when you expand to GUI
+gui = [
+    "PyQt6>=6.0.0",     # Or "customtkinter", "pyside6", etc.
+]
+# Extra dependencies for when you expand to Web
+web = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+]
+# Development dependencies
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+# This creates a terminal command 'flashcards' that runs your CLI main function
+flashcards = "flashcardApp.main:start"
+
+[tool.setuptools.packages.find]
+where = ["src"]  # Encourages a clean /src layout
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
