@@ -20,11 +20,13 @@ def generateSubtractionQuestion():
     answer = num1 - num2
     return [num1, num2, answer]
 
+
 def generateMultiplicationQuestion():
     num1 = random.randint(1, 10)
     num2 = random.randint(1, 10)
     answer = num1 * num2
     return [num1, num2, answer]
+
 
 def generateDivisionQuestion():
     num2 = random.randint(1, 10)  # divisor

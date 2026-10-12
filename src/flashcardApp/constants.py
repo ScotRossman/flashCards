@@ -10,6 +10,6 @@ math_types = {
 practice_type = {
     1: "addition",
     2: "subtraction",
-    3 : "multiplication",
+    3: "multiplication",
     # 4:  "division"
 }

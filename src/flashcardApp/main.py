@@ -43,13 +43,14 @@ def start():
             question_values = operations.generateSubtractionQuestion()
             symbol = "-"
         case "multiplication":
-        	question_values = operations.generateMultiplicationQuestion()
-        	symbol = "*"
+            question_values = operations.generateMultiplicationQuestion()
+            symbol = "*"
         case _:
             return
 
     answer = input(
-        f"Can you tell me what {question_values[0]} {symbol} {question_values[1]} equals?")
+        f"Can you tell me what {question_values[0]} {symbol} {question_values[1]} equals?"
+    )
 
     validateAnswer(int(question_values[2]), int(answer))
 

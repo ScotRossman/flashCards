@@ -3,7 +3,6 @@ from unittest.mock import patch
 from flashcardApp import operations
 
 
-
 # Test for addition
 @patch("random.randint")
 def test_generate_addition_question_logic(mock_randint):
@@ -25,6 +24,7 @@ def test_generate_addition_question_range():
         assert 1 <= num2 <= 10
         assert answer == num1 + num2
 
+
 @patch("random.randint")
 def test_generate_subtraction_question_logic(mock_randint):
     mock_randint.side_effect = [7, 4]
@@ -33,9 +33,10 @@ def test_generate_subtraction_question_logic(mock_randint):
     assert num2 == 4
     assert answer == 3
 
+
 @patch("random.randint")
 def test_generate_subtraction_question_logic_while(mock_randint):
     mock_randint.side_effect = [5, 5, 2]
 
     result = operations.generateSubtractionQuestion()
-    assert result == [5,2,3]
+    assert result == [5, 2, 3]
