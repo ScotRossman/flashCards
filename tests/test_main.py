@@ -3,11 +3,19 @@ from flashcardApp.main import start
 
 
 def test_start_game_success(monkeypatch, capsys):
-    inputs = iter(["Scot", "1", "4"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+    inputs = iter(["Scot", "1", "4", "18", "18"])
+
+    def mock_input(prompt=""):
+        try:
+            return next(inputs)
+        except StopIteration:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", mock_input)
 
     # 3. Run the start function
-    start()
+    with pytest.raises(SystemExit) as exc_info:
+        start()
 
     # 4. Capture the terminal output
     captured = capsys.readouterr().out
@@ -24,11 +32,17 @@ def test_start_game_bad_selection(monkeypatch, capsys):
     # Third:  "9"   -> Valid int but not a choice, hits 'else', loops back
     # Fourth: "4"   -> Valid int and choice, hits 'break', exits loop safely
     # Fifth:  "5"   -> Submits final math answer to finish execution
-    inputs = iter(["Scot", "abc", "9", "2", "5"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-    # monkeypatch.setattr("flashcardApp.main.division", MockDivision)
+    inputs = iter(["Scot", "abc", "9", "2", "5", "18", "18", "23"])
 
-    start()
+    def mock_input(prompt=""):
+        try:
+            return next(inputs)
+        except StopIteration:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", mock_input)
+    with pytest.raises(SystemExit) as exc_info:
+        start()
 
     captured = capsys.readouterr().out
 
