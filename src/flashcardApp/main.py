@@ -1,7 +1,6 @@
 # This is the main starting point for a simple math flashcard game
 
-from . import addition
-from . import division
+from . import operations
 from . import constants
 
 
@@ -12,6 +11,7 @@ def start():
 
     # capture the name and save it for later use
     print("Hello and welcome.  It's time to practice our math facts")
+    print("(Press Ctrl + Q at any prompt to instantly quit the game)\n")
     name = input("what is your first name:")
 
     # give some options of what type of flashcards you want to practice
@@ -33,13 +33,26 @@ def start():
             # Handles cases where the input is not a number (e.g., 'abc')
             print("Error: Invalid input. Please enter a whole number.")
 
-    # addition.generateQuestion()
+    # We have a valid math type generate the question
+    print(constants.practice_type[practice_type_inp])
+    match constants.practice_type[practice_type_inp]:
+        case "addition":
+            question_values = operations.generateAdditionQuestion()
+            symbol = "+"
+        case "subtraction":
+            question_values = operations.generateSubtractionQuestion()
+            symbol = "-"
+        case "multiplication":
+        	question_values = operations.generateMultiplicationQuestion()
+        	symbol = "*"
+        case _:
+            return
+
+    answer = input(
+        f"Can you tell me what {question_values[0]} {symbol} {question_values[1]} equals?")
+
+    validateAnswer(int(question_values[2]), int(answer))
 
 
-# numbers = division.generateDivisionQuestion()
-# answer = input(f"Can you tell me what {numbers[0]} / {numbers[1]} equals?")
-
-
-# validateAnswer(int(numbers[2]), int(answer))
 if __name__ == "__main__":
     start()
