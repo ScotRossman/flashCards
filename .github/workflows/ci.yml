@@ -36,7 +36,7 @@ jobs:
 
     - name: Run Test Suite with Pytest
       run: |
-        pytest -v --cov=./ --cov-report=xml
+        pytest --cov=./ --cov-report=xml
 
     # 3. Upload the coverage data to GitHub
     - name: Upload code coverage report
