@@ -40,3 +40,19 @@ def test_generate_subtraction_question_logic_while(mock_randint):
 
     result = operations.generateSubtractionQuestion()
     assert result == [5, 2, 3]
+
+@patch("random.randint")
+def test_generate_multiplication_question_logic(mock_randint):
+    mock_randint.side_effect = [7, 4]
+    num1, num2, answer = operations.generateMultiplicationQuestion()
+    assert num1 == 7
+    assert num2 == 4
+    assert answer == 28
+
+@patch("random.randint")
+def test_generate_division_question_logic(mock_randint):
+    mock_randint.side_effect = [4, 4]
+    num1, num2, answer = operations.generateDivisionQuestion()
+    assert num1 == 16
+    assert num2 == 4
+    assert answer == 4
