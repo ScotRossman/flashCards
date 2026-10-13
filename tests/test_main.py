@@ -32,7 +32,7 @@ def test_start_game_bad_selection(monkeypatch, capsys):
     # Third:  "9"   -> Valid int but not a choice, hits 'else', loops back
     # Fourth: "4"   -> Valid int and choice, hits 'break', exits loop safely
     # Fifth:  "5"   -> Submits final math answer to finish execution
-    inputs = iter(["Scot", "abc", "9", "2", "5", "18", "18", "23"])
+    inputs = iter(["Scot", "abc", "9", "1", "5", "18", "18", "23"])
 
     def mock_input(prompt=""):
         try:
