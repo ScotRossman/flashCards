@@ -1,0 +1,55 @@
+name: "Terraform AWS Deploy"
+
+on:
+  push:
+    branches:
+      - main
+    # Only trigger when changes are made to the infrastructure or lambda source code
+    paths:
+      - 'terraform/**'
+      - 'src/**' 
+
+jobs:
+  terraform:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./terraform 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- OPTIONAL DEPENDENCY STEP ---
+      # If your Lambda is Node.js and needs npm modules zipped up, uncomment this:
+      # - name: Install Lambda Dependencies
+      #   run: |
+      #     cd ../src/lambda_code_directory
+      #     npm ci --production
+      # ---------------------------------
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Setting up Terraform CLI
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      # Since state is in S3, the runner can log in and read it smoothly
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      # Generates a plan and applies it automatically
+      - name: Terraform Apply
+        run: terraform apply -auto-approve

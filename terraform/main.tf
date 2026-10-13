@@ -5,6 +5,12 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "s3" {
+    bucket         = "my-flashcard-tfstate-bucket" 
+    key            = "flashcard-app/terraform.tfstate"
+    region         = "us-east-1"                   
+    encrypt        = true
+  }
 }
 
 provider "aws" {
