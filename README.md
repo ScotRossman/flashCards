@@ -1,82 +1,156 @@
-# Flashcard App 🗂️
+# 🗂️ Flashcard App
 
-[![codecov](https://codecov.io)](https://codecov.io)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#-license)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![codecov](https://codecov.io/gh/ScotRossman/flashCards/branch/dev/graph/badge.svg)](https://codecov.io/gh/ScotRossman/flashCards)
 
-An interactive, Python-based flashcard application built to help users study and retain information. The project is designed with live-development workflows, automated formatting checks, and a continuous integration pipeline.
+A Python flashcard application for studying and retaining information, starting with a terminal interface and designed to grow into a GUI and web app.
+
+---
+
+## 📑 Table of Contents
+
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [Development](#-development)
+- [Continuous Integration](#-continuous-integration)
+- [Roadmap](#-roadmap)
+- [License](#-license)
+
+---
 
 ## 🚀 Features
-* **Interactive Flashcards:** Create, review, and manage study decks dynamically via the terminal.
-* **Live Development Mode:** Mounted in editable mode so changes update instantly during debugging.
-* **Format Compliance:** Automatically checked using `black` to ensure clean code architecture.
-* **Comprehensive Test Suite:** Powered by `pytest` and `pytest-cov` to track execution safety.
+
+- **Interactive terminal study sessions:** create, review, and manage flashcards from the command line.
+- **Installable command:** installs a `flashcards` command via the project's console-script entry point.
+- **Editable installs:** code changes take effect on the next run without reinstalling.
+- **Automated quality checks:** formatting with `black`, tests with `pytest` and `pytest-cov`.
+- **CI pipeline:** GitHub Actions validates every push and pull request to `dev`, with coverage reported to Codecov.
 
 ---
 
-## 🛠️ Local Development Setup
+## ⚡ Quick Start
 
-Follow these steps to set up the project on your local machine.
+**Requirements:** Python 3.10 or newer and `git`.
 
-### 1. Clone the Repository
 ```bash
-git clone https://github.com
+# 1. Clone the repository
+git clone https://github.com/<your-username>/flashCards.git
 cd flashCards
-```
 
-### 2. Set Up a Virtual Environment (Recommended)
-```bash
+# 2. Create and activate a virtual environment
 python -m venv .venv
-# Activate on Windows (PowerShell):
+
+# Windows (PowerShell)
 .\.venv\Scripts\Activate.ps1
-# Activate on macOS/Linux:
+# macOS / Linux
 source .venv/bin/activate
+
+# 3. Install the app with development tools (editable mode)
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
+pip install pytest-cov
+
+# 4. Run it
+flashcards
 ```
 
-### 3. Install Dependencies & Live-Mount
-Install development utilities and mount the application in **editable mode**. This links Python directly to your source files so that **any changes you make apply instantly** without restarting or reinstalling:
+> **Tip:** if the `flashcards` command isn't found, make sure your virtual environment is activated, or run the module directly with `python -m flashcardApp.main`.
+
+---
+
+## 💻 Usage
+
+Launch the app from anywhere inside your activated environment:
+
 ```bash
-pip install --upgrade pip
-pip install build black pytest pytest-cov
-pip install -e .
+flashcards
+```
+
+Because the project is installed in editable mode (`pip install -e`), edit the code in your IDE and simply re-run the command to see your changes.
+
+---
+
+## 🧱 Project Structure
+
+```text
+flashCards/
+├── src/
+│   └── flashcardApp/
+│       ├── main.py          # Entry point (start() is wired to the `flashcards` command)
+│       ├── operations.py    # Flashcard and study logic
+│       └── constants.py     # Shared constants
+├── tests/                   # pytest test suite
+├── pyproject.toml           # Packaging, dependencies, tool configuration
+└── README.md
 ```
 
 ---
 
-## 💻 Running & Debugging the App
+## 🛠️ Development
 
-### Run the App Locally
-Because the app is installed in editable mode, you can launch it anytime by running:
-```bash
-python src/main.py
-```
-*Feel free to make code changes in your IDE; the live app will reflect those updates immediately on the next execution.*
+### Dependencies
 
----
+| Group   | Install command            | Contents                              |
+| ------- | -------------------------- | ------------------------------------- |
+| Core    | `pip install -e .`         | `click`, `pydantic`                   |
+| Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`           |
+| GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
+| Web     | `pip install -e ".[web]"`  | `fastapi`, `uvicorn` *(planned)*      |
 
-## 🧪 Testing & Code Quality
+### Run the tests
 
-### Run the Test Suite
-To run all tests and generate a code coverage report locally:
 ```bash
 pytest --cov=./src --cov-report=xml
 ```
 
-### Debugging Hanging Tests
-If your interactive menu prompts cause `pytest` to hang or freeze locally, disable output capturing and turn on verbose mode to see exactly where the loop is waiting:
+**Tests hang?** Interactive menu prompts can wait for input while `pytest` captures output. Disable capturing and enable verbose mode to see where it's waiting:
+
 ```bash
 pytest --cov=./src --cov-report=xml -v -s
 ```
 
-### Check Code Formatting
-Verify that your code complies with the project's style guide before pushing:
+### Check and apply formatting
+
 ```bash
-black --check src/ tests/
+black --check src/ tests/   # verify only
+black src/ tests/           # auto-format
+```
+
+### Lint
+
+```bash
+flake8 src/ tests/
 ```
 
 ---
 
-## 🤖 Continuous Integration (CI)
+## 🤖 Continuous Integration
 
-This repository utilizes **GitHub Actions** to automatically validate code quality on every push or pull request to the `dev` branch. The workflow ensures:
-1. **Formatting:** Validates code style consistency using `black`.
-2. **Testing:** Executes the full `pytest` suite matrix.
-3. **Codecov Integration:** Automatically uploads reports and tracks code health metrics. You can view the live interactive coverage dashboards directly on [Codecov](https://codecov.io).
+GitHub Actions runs on every push and pull request to the `dev` branch:
+
+1. **Formatting:** `black --check` enforces a consistent style.
+2. **Testing:** the full `pytest` suite runs.
+3. **Coverage:** reports upload to [Codecov](https://codecov.io) so you can track code health over time.
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Command-line interface
+- [ ] Desktop GUI (`gui` extra)
+- [ ] Web interface (`web` extra)
+- [ ] Raise test coverage across `main.py` and `operations.py`
+
+---
+
+## 📄 License
+
+Released under the [MIT License](https://opensource.org/licenses/MIT).
+
+---
+
+*Built by Scot Rossman as a hands-on Python learning project.*
