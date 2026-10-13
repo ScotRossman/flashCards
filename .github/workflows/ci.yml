@@ -41,7 +41,8 @@ jobs:
 
     # 3. Upload the coverage data to GitHub
     - name: Upload code coverage report
-      uses: actions/upload-code-coverage@v1
+      uses: codecov/codecov-action@v5
       with:
         file: ./coverage.xml
-        language: python
+        fail_ci_if_error: false
+        
