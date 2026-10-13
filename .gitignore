@@ -13,3 +13,33 @@ ENV/
 build/
 dist/
 *.egg-info/
+
+# ==========================================
+# Terraform Infrastructure Exclusions
+# ==========================================
+# Local tracking cache containing downloaded plugins
+.terraform/
+
+# State logs that contain plain-text maps of your cloud architecture
+*.tfstate
+*.tfstate.backup
+
+# Lock files that prevent concurrent runs locally
+.terraform.lock.hcl
+
+# File archives generated locally during zip bundling
+*.zip
+terraform/lambda_function.zip
+
+# Variable files that might contain private tokens or overrides
+*.tfvars
+*.tfvars.json
+
+# ==========================================
+#  Operating System Artifacts
+# ==========================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
