@@ -87,7 +87,8 @@ def lambda_handler(event, context):
     if not isinstance(event, dict):
         event = {}
 
-    practice_type_inp = event.get("practice_type", 1)
+    params = event.get("queryStringParameters") or {}
+	practice_type_inp = event.get("practice_type") or params.get("practice_type", 1)
     user_answer = event.get("user_answer", None)
     expected_answer = event.get("expected_answer", None)
 

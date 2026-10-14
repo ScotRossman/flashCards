@@ -38,7 +38,7 @@ A Python flashcard application for studying and retaining information, starting 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/<your-username>/flashCards.git
+git clone https://github.com/ScotRossman/flashCards.git
 cd flashCards
 
 # 2. Create and activate a virtual environment
