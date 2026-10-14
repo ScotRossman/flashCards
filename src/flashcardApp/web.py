@@ -21,6 +21,7 @@ if "game_started" not in st.session_state:
 if "player_name" not in st.session_state:
     st.session_state.player_name = ""
 
+
 # function to fetch a question
 def fetch_question(practice_code):
     try:
@@ -38,7 +39,9 @@ def fetch_question(practice_code):
 # sidebar setup:
 st.sidebar.header("game setup")
 # Bind text input to session state
-st.session_state.player_name = st.sidebar.text_input("Player Name", value=st.session_state.player_name)
+st.session_state.player_name = st.sidebar.text_input(
+    "Player Name", value=st.session_state.player_name
+)
 
 practice_options = {"addition": 1, "subtraction": 2, "multiplication": 3, "division": 4}
 
@@ -82,8 +85,8 @@ if st.session_state.expected is not None:
             st.session_state.submitted = True
             if int(user_ans) == st.session_state.expected:
                 st.success("Correct! Great job!")
-                st.session_state.correct_answers +=1
-                
+                st.session_state.correct_answers += 1
+
             else:
                 st.error(f"Incorrect. The answer was {st.session_state.expected}")
     with col2:
