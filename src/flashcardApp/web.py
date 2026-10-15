@@ -5,7 +5,7 @@ from db import init_db, get_or_create_player, log_session, get_leaderboard
 # api AWSURL
 API_URL = "https://62x9u9qzf1.execute-api.us-east-1.amazonaws.com/flashcard"
 
-#init the database
+# init the database
 init_db()
 
 st.title("🧮 Math Flashcards with db")
@@ -25,6 +25,8 @@ if "game_started" not in st.session_state:
     st.session_state.game_started = False
 if "player_name" not in st.session_state:
     st.session_state.player_name = ""
+if "player_id" not in st.session_state:
+    st.session_state.player_id = 0
 
 
 # function to fetch a question
@@ -59,11 +61,20 @@ sb_col1, sb_col2 = st.sidebar.columns(2)
 with sb_col1:
     if st.session_state.player_name != "" and selected_option is not None:
         if sb_col1.button("Start"):
+            st.session_state.player_id = get_or_create_player(
+                st.session_state.player_name
+            )
             fetch_question(practice_type_code)
             st.rerun()
 with sb_col2:
     if st.session_state.player_name != "" and selected_option is not None:
         if sb_col2.button("quit"):
+            log_session(
+                st.session_state.player_id,
+                selected_option,
+                st.session_state.correct_answers,
+                st.session_state.correct_answers + st.session_state.wrong_answers,
+            )
             st.session_state.question = (
                 "Welcome to the flashcard practice application. Enter your name and"
                 " select what type of math you want to practice"
@@ -92,6 +103,7 @@ if st.session_state.expected is not None:
             if int(user_ans) == st.session_state.expected:
                 st.success("Correct! Great job!")
                 st.session_state.correct_answers += 1
+                st.rerun()
 
             else:
                 st.error(f"Incorrect. The answer was {st.session_state.expected}")
