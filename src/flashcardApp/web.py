@@ -1,16 +1,21 @@
 import streamlit as st
 import requests
+from db import init_db, get_or_create_player, log_session, get_leaderboard
 
 # api AWSURL
 API_URL = "https://62x9u9qzf1.execute-api.us-east-1.amazonaws.com/flashcard"
 
-st.title("🧮 Math Flashcards")
+#init the database
+init_db()
+
+st.title("🧮 Math Flashcards with db")
 
 # Initialize cross-refresh session states
 if "question" not in st.session_state:
     st.session_state.question = "Welcome to the flashcard practice application. Enter your name and select what type of math you want to practice"
     st.session_state.expected = None
     st.session_state.correct_answers = 0
+    st.session_state.wrong_answers = 0
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
 
@@ -65,6 +70,7 @@ with sb_col2:
             )
             st.session_state.expected = None
             st.session_state.correct_answers = 0
+            st.session_state.wrong_answers = 0
             st.session_state.submitted = False
             st.session_state.user_input = ""
             selected_option = None
@@ -75,7 +81,7 @@ with sb_col2:
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**Score:** {st.session_state.correct_answers} correct")
 
-st.subheader(st.session_state.question)
+st.subheader(st.session_state.player_name + st.session_state.question)
 
 if st.session_state.expected is not None:
     user_ans = st.text_input("Enter your answer:", key="user_input")
@@ -89,6 +95,7 @@ if st.session_state.expected is not None:
 
             else:
                 st.error(f"Incorrect. The answer was {st.session_state.expected}")
+                st.session_state.wrong_answers += 1
     with col2:
         if st.button("next Question", disabled=not st.session_state.submitted):
             fetch_question(practice_type_code)
