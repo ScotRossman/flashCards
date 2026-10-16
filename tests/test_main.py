@@ -67,9 +67,7 @@ def test_start_game_bad_selection(monkeypatch, capsys):
 def test_start_game_runs_each_math_operation(
     monkeypatch, capsys, practice_type, generator, question_values, symbol
 ):
-    monkeypatch.setattr(
-        main.operations, generator, lambda: question_values
-    )
+    monkeypatch.setattr(main.operations, generator, lambda: question_values)
     inputs = iter(["Scot", str(practice_type), str(question_values[2])])
     prompts = []
 
@@ -87,10 +85,7 @@ def test_start_game_runs_each_math_operation(
 
     assert exc_info.value.code == 0
     output = capsys.readouterr().out
-    assert (
-        f"{question_values[0]} {symbol} {question_values[1]}"
-        in prompts[2]
-    )
+    assert f"{question_values[0]} {symbol} {question_values[1]}" in prompts[2]
     assert "great job" in output
     assert "Your answered 1 questions correctly" in output
 
@@ -159,9 +154,7 @@ def test_lambda_handler_generates_question_for_each_practice_type(
 def test_lambda_handler_defaults_to_addition_for_missing_or_invalid_type(
     monkeypatch, event
 ):
-    monkeypatch.setattr(
-        main.operations, "generateAdditionQuestion", lambda: (2, 3, 5)
-    )
+    monkeypatch.setattr(main.operations, "generateAdditionQuestion", lambda: (2, 3, 5))
 
     response = lambda_handler(event, None)
 

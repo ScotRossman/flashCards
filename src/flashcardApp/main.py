@@ -80,7 +80,7 @@ def start():
         sys.exit(0)
 
 
-#Handle AWS Lambda event so that we can use this code in a serverless environment
+# Handle AWS Lambda event so that we can use this code in a serverless environment
 def lambda_handler(event, context):
     """
     The entrypoint for AWS Lambda. Safely unpacks the tuples returned by operations.py
