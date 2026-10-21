@@ -72,6 +72,39 @@ flashcards
 
 Because the project is installed in editable mode (`pip install -e`), edit the code in your IDE and simply re-run the command to see your changes.
 
+### Run the Streamlit app against RDS MySQL
+
+The web app connects to the `flashcards` schema on the `flashcard-1` RDS
+instance. Install the web dependencies with:
+
+```powershell
+pip install -e ".[web]"
+```
+
+For local development, first start the Systems Manager port-forwarding session
+to RDS in a separate PowerShell window. Then configure the app's connection in
+the PowerShell window where you will run Streamlit:
+
+```powershell
+$env:DB_HOST = "127.0.0.1"
+$env:DB_PORT = "3307"
+$env:DB_NAME = "flashcards"
+$env:DB_USER = Read-Host "MySQL application username"
+$securePassword = Read-Host "MySQL application password" -AsSecureString
+$env:DB_PASSWORD = [System.Net.NetworkCredential]::new("", $securePassword).Password
+$env:DB_SSL_VERIFY_IDENTITY = "false"
+python -m streamlit run .\src\flashcardApp\web.py
+```
+
+The local tunnel changes the address used for the connection, so hostname
+identity verification is disabled for this tunneled connection; TLS certificate
+verification remains enabled. When connecting directly from an application
+inside the VPC, use the RDS endpoint and leave `DB_SSL_VERIFY_IDENTITY` unset
+(the default is `true`). Never put database credentials in source code or
+commit them to the repository. Use a database account limited to the
+`flashcards` schema with only `SELECT`, `INSERT`, and `UPDATE` privileges, not
+the RDS master account.
+
 ---
 
 ## 🧱 Project Structure
@@ -99,7 +132,7 @@ flashCards/
 | Core    | `pip install -e .`         | `click`, `pydantic`                   |
 | Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`           |
 | GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
-| Web     | `pip install -e ".[web]"`  | `fastapi`, `uvicorn` *(planned)*      |
+| Web     | `pip install -e ".[web]"`  | `streamlit`, `PyMySQL`                |
 
 ### Run the tests
 

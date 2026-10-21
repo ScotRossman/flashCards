@@ -44,3 +44,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# ==========================================
+#  Miscellaneous
+# ==========================================
+.agents/skills/
+skills-lock.json
