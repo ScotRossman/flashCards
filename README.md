@@ -74,36 +74,35 @@ Because the project is installed in editable mode (`pip install -e`), edit the c
 
 ### Run the Streamlit app against RDS MySQL
 
-The web app connects to the `flashcards` schema on the `flashcard-1` RDS
-instance. Install the web dependencies with:
+Streamlit sends player creation/lookups and completed-session writes to the
+Lambda API. The Lambda function connects to the `flashcards` schema on the
+`flashcard-1` RDS instance. Install the web dependencies with:
 
 ```powershell
 pip install -e ".[web]"
 ```
 
-For local development, first start the Systems Manager port-forwarding session
-to RDS in a separate PowerShell window. Then configure the app's connection in
-the PowerShell window where you will run Streamlit:
+Before deploying the Lambda changes:
 
 ```powershell
-$env:DB_HOST = "127.0.0.1"
-$env:DB_PORT = "3307"
-$env:DB_NAME = "flashcards"
-$env:DB_USER = Read-Host "MySQL application username"
-$securePassword = Read-Host "MySQL application password" -AsSecureString
-$env:DB_PASSWORD = [System.Net.NetworkCredential]::new("", $securePassword).Password
-$env:DB_SSL_VERIFY_IDENTITY = "false"
-python -m streamlit run .\src\flashcardApp\web.py
+.\terraform\build_lambda.ps1
+Set-Location .\terraform
+terraform plan -var 'db_secret_arn=<Secrets Manager secret ARN>' -var 'lambda_subnet_ids=["<private-subnet-id>"]' -var 'lambda_security_group_ids=["<lambda-security-group-id>"]'
 ```
 
-The local tunnel changes the address used for the connection, so hostname
-identity verification is disabled for this tunneled connection; TLS certificate
-verification remains enabled. When connecting directly from an application
-inside the VPC, use the RDS endpoint and leave `DB_SSL_VERIFY_IDENTITY` unset
-(the default is `true`). Never put database credentials in source code or
-commit them to the repository. Use a database account limited to the
-`flashcards` schema with only `SELECT`, `INSERT`, and `UPDATE` privileges, not
-the RDS master account.
+The secret must contain JSON keys `username` and `password`. Put the Lambda in
+private subnets in the RDS VPC, with outbound access to RDS and Secrets Manager
+(through a Secrets Manager VPC endpoint or NAT). Allow inbound TCP 3306 on the
+RDS security group from the Lambda security group only. The Lambda execution
+role receives permission to read only the configured secret. Use a MySQL user
+limited to the `flashcards` schema, not the RDS master account.
+
+The POST route uses AWS IAM authorization. Grant the AWS identity used to run
+Streamlit `execute-api:Invoke` on the ARN printed by the
+`player_api_invoke_arn` Terraform output, and configure local AWS credentials
+for that identity. The app signs its POST requests using SigV4; set
+`API_AWS_REGION` if the API is not in `us-east-1`. No local RDS credentials or
+SSM tunnel are needed for Streamlit database writes.
 
 ---
 
@@ -132,7 +131,7 @@ flashCards/
 | Core    | `pip install -e .`         | `click`, `pydantic`                   |
 | Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`           |
 | GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
-| Web     | `pip install -e ".[web]"`  | `streamlit`, `PyMySQL`                |
+| Web     | `pip install -e ".[web]"` | `streamlit`, `PyMySQL`, `boto3`       |
 
 ### Run the tests
 

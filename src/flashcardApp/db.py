@@ -1,7 +1,9 @@
+import json
 import os
 import ssl
 from datetime import datetime
 
+import boto3
 import pymysql
 
 DB_HOST = "flashcard-1.c47iysguc25a.us-east-1.rds.amazonaws.com"
@@ -24,10 +26,20 @@ def _environment_flag(name: str, default: bool) -> bool:
 
 def _connect():
     """Opens a TLS-protected connection to the configured MySQL database."""
-    username = os.getenv("DB_USER")
-    password = os.getenv("DB_PASSWORD")
+    secret_arn = os.getenv("DB_SECRET_ARN")
+    if secret_arn:
+        secret_response = boto3.client("secretsmanager").get_secret_value(
+            SecretId=secret_arn
+        )
+        secret = json.loads(secret_response["SecretString"])
+        username = secret["username"]
+        password = secret["password"]
+    else:
+        username = os.getenv("DB_USER")
+        password = os.getenv("DB_PASSWORD")
+
     if not username or not password:
-        raise RuntimeError("Set the DB_USER and DB_PASSWORD environment variables.")
+        raise RuntimeError("Configure DB_SECRET_ARN or set DB_USER and DB_PASSWORD.")
 
     try:
         port = int(os.getenv("DB_PORT", str(DB_PORT)))

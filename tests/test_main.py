@@ -185,3 +185,107 @@ def test_lambda_handler_evaluates_answer(
         "correct": is_correct,
         "message": message,
     }
+
+
+def test_lambda_handler_creates_or_finds_player(monkeypatch):
+    captured_names = []
+
+    def mock_get_or_create_player(name):
+        captured_names.append(name)
+        return 42
+
+    monkeypatch.setattr(main, "get_or_create_player", mock_get_or_create_player)
+
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({"action": "get_or_create_player", "name": "  Ada  "}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "status": "player_ready",
+        "player_id": 42,
+        "name": "Ada",
+    }
+    assert captured_names == ["Ada"]
+
+
+def test_lambda_handler_logs_session(monkeypatch):
+    captured_sessions = []
+
+    def mock_log_session(player_id, practice_type, score, total):
+        captured_sessions.append((player_id, practice_type, score, total))
+
+    monkeypatch.setattr(main, "log_session", mock_log_session)
+
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps(
+                {
+                    "action": "log_session",
+                    "player_id": 42,
+                    "practice_type": "addition",
+                    "score": 3,
+                    "total": 4,
+                }
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"status": "session_logged"}
+    assert captured_sessions == [(42, "addition", 3, 4)]
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_error"),
+    [
+        ("{invalid json", "Request body must be JSON."),
+        (
+            json.dumps({"action": "get_or_create_player", "name": "  "}),
+            "Player name is required.",
+        ),
+        (
+            json.dumps({"action": "get_or_create_player", "name": "A" * 256}),
+            "Player name must be 255 characters or fewer.",
+        ),
+        (
+            json.dumps({"action": "unsupported", "name": "Ada"}),
+            "Unsupported POST action.",
+        ),
+    ],
+)
+def test_lambda_handler_rejects_invalid_player_requests(body, expected_error):
+    response = lambda_handler(
+        {"requestContext": {"http": {"method": "POST"}}, "body": body}, None
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {"error": expected_error}
+
+
+@pytest.mark.parametrize(
+    "session",
+    [
+        {"player_id": 0, "practice_type": "addition", "score": 0, "total": 0},
+        {"player_id": 42, "practice_type": "other", "score": 0, "total": 0},
+        {"player_id": 42, "practice_type": "addition", "score": 2, "total": 1},
+        {"player_id": True, "practice_type": "addition", "score": 1, "total": 1},
+    ],
+)
+def test_lambda_handler_rejects_invalid_session_requests(session):
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({"action": "log_session", **session}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"])["error"]

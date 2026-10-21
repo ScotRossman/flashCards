@@ -6,10 +6,10 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "my-flashcard-tfstate-bucket" 
-    key            = "flashcard-app/terraform.tfstate"
-    region         = "us-east-1"                   
-    encrypt        = true
+    bucket  = "my-flashcard-tfstate-bucket"
+    key     = "flashcard-app/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
   }
 }
 
@@ -21,8 +21,23 @@ provider "aws" {
 # This packages the entire /src folder so your relative imports match up
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../src/flashcardApp"
+  source_dir  = "${path.module}/lambda-package"
   output_path = "${path.module}/lambda_function.zip"
+}
+
+variable "db_secret_arn" {
+  description = "Secrets Manager ARN containing JSON keys username and password for the flashcards MySQL user."
+  type        = string
+}
+
+variable "lambda_subnet_ids" {
+  description = "Private subnet IDs in the RDS VPC for the Lambda function."
+  type        = list(string)
+}
+
+variable "lambda_security_group_ids" {
+  description = "Security group IDs for Lambda; RDS must allow TCP 3306 from this security group."
+  type        = list(string)
 }
 
 # 3. Security (IAM Role & Policy) for Lambda Execution
@@ -45,6 +60,25 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "lambda_database_secret" {
+  name = "read-flashcards-database-secret"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = var.db_secret_arn
+    }]
+  })
+}
+
 # 4. Deploy the Python Lambda Function
 resource "aws_lambda_function" "flashcard_backend" {
   filename         = data.archive_file.lambda_zip.output_path
@@ -54,18 +88,38 @@ resource "aws_lambda_function" "flashcard_backend" {
   runtime          = "python3.11"
   timeout          = 15
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      DB_HOST       = "flashcard-1.c47iysguc25a.us-east-1.rds.amazonaws.com"
+      DB_PORT       = "3306"
+      DB_NAME       = "flashcards"
+      DB_SECRET_ARN = var.db_secret_arn
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = var.lambda_subnet_ids
+    security_group_ids = var.lambda_security_group_ids
+  }
 }
 
 # 5. Create the HTTP API Gateway (Cost-effective & simple for developers)
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "math-flashcard-http-api"
   protocol_type = "HTTP"
-  
+
   # Crucial for future frontend integration: allows your local UI/Webapp to call this API without CORS errors
   cors_configuration {
     allow_origins = ["*"]
     allow_methods = ["GET", "POST", "OPTIONS"]
-    allow_headers = ["content-type"]
+    allow_headers = [
+      "authorization",
+      "content-type",
+      "x-amz-date",
+      "x-amz-security-token",
+      "x-amz-content-sha256",
+    ]
   }
 }
 
@@ -76,12 +130,18 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   integration_uri  = aws_lambda_function.flashcard_backend.arn
 }
 
-# 7. Create a Route (The actual URL pathway)
-# Any GET or POST request to your URL ending in /flashcard will route to Python
-resource "aws_apigatewayv2_route" "api_route" {
+# 7. Keep question retrieval public and require IAM authorization for writes.
+resource "aws_apigatewayv2_route" "get_api_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "ANY /flashcard"
+  route_key = "GET /flashcard"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "player_api_route" {
+  api_id             = aws_apigatewayv2_api.http_api.id
+  route_key          = "POST /flashcard"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+  authorization_type = "AWS_IAM"
 }
 
 # 8. Deploy the API Live
@@ -104,4 +164,9 @@ resource "aws_lambda_permission" "api_gateway_permission" {
 output "base_url" {
   value       = "${aws_apigatewayv2_api.http_api.api_endpoint}/flashcard"
   description = "The public web URL for your math flashcard backend."
+}
+
+output "player_api_invoke_arn" {
+  value       = "${aws_apigatewayv2_api.http_api.execution_arn}/$default/POST/flashcard"
+  description = "Grant execute-api:Invoke on this ARN to the AWS identity used by Streamlit."
 }

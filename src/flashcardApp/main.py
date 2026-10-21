@@ -4,6 +4,7 @@ import sys
 import json
 import random
 import os
+import base64
 
 try:
     from . import operations
@@ -11,6 +12,11 @@ try:
 except (ImportError, SyntaxError, ValueError):
     import operations
     import constants
+
+try:
+    from .db import get_or_create_player, log_session
+except (ImportError, SyntaxError, ValueError):
+    from db import get_or_create_player, log_session
 
 
 def start():
@@ -88,6 +94,72 @@ def lambda_handler(event, context):
     if not isinstance(event, dict):
         event = {}
 
+    request_context = event.get("requestContext") or {}
+    http_context = request_context.get("http") or {}
+    method = http_context.get("method", event.get("httpMethod", "GET")).upper()
+
+    if method == "POST":
+        body = event.get("body") or {}
+        if isinstance(body, str):
+            if event.get("isBase64Encoded"):
+                body = base64.b64decode(body).decode("utf-8")
+            try:
+                body = json.loads(body)
+            except json.JSONDecodeError:
+                return _json_response(400, {"error": "Request body must be JSON."})
+        if not isinstance(body, dict):
+            return _json_response(400, {"error": "Request body must be a JSON object."})
+        action = body.get("action")
+        if action == "get_or_create_player":
+            name = body.get("name")
+            if not isinstance(name, str) or not name.strip():
+                return _json_response(400, {"error": "Player name is required."})
+            name = name.strip()
+            if len(name) > 255:
+                return _json_response(
+                    400, {"error": "Player name must be 255 characters or fewer."}
+                )
+
+            player_id = get_or_create_player(name)
+            return _json_response(
+                200,
+                {"status": "player_ready", "player_id": player_id, "name": name},
+            )
+
+        if action == "log_session":
+            player_id = body.get("player_id")
+            practice_type = body.get("practice_type")
+            score = body.get("score")
+            total = body.get("total")
+            if (
+                not isinstance(player_id, int)
+                or isinstance(player_id, bool)
+                or player_id <= 0
+            ):
+                return _json_response(
+                    400, {"error": "Player ID must be a positive integer."}
+                )
+            if (
+                not isinstance(practice_type, str)
+                or practice_type not in constants.practice_type.values()
+            ):
+                return _json_response(400, {"error": "Practice type is invalid."})
+            if (
+                not isinstance(score, int)
+                or isinstance(score, bool)
+                or not isinstance(total, int)
+                or isinstance(total, bool)
+                or score < 0
+                or total < score
+            ):
+                return _json_response(400, {"error": "Session scores are invalid."})
+
+            log_session(player_id, practice_type, score, total)
+            return _json_response(200, {"status": "session_logged"})
+
+        else:
+            return _json_response(400, {"error": "Unsupported POST action."})
+
     params = event.get("queryStringParameters") or {}
     practice_type_inp = event.get("practice_type") or params.get("practice_type", 1)
     user_answer = event.get("user_answer", None)
@@ -149,6 +221,14 @@ def lambda_handler(event, context):
                 "expected_answer": int(question_values[2]),
             }
         ),
+    }
+
+
+def _json_response(status_code, payload):
+    return {
+        "statusCode": status_code,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(payload),
     }
 
 
