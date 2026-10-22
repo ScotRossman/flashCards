@@ -109,12 +109,43 @@ RDS security group from the Lambda security group only. The Lambda execution
 role receives permission to read only the configured secret. Use a MySQL user
 limited to the `flashcards` schema, not the RDS master account.
 
-The POST route uses AWS IAM authorization. Grant the AWS identity used to run
-Streamlit `execute-api:Invoke` on the ARN printed by the
-`player_api_invoke_arn` Terraform output, and configure local AWS credentials
-for that identity. The app signs its POST requests using SigV4; set
-`API_AWS_REGION` if the API is not in `us-east-1`. No local RDS credentials or
-SSM tunnel are needed for Streamlit database writes.
+The POST route uses AWS IAM authorization. Grant the identity used by Streamlit
+`execute-api:Invoke` on the ARN printed by the `player_api_invoke_arn` Terraform
+output. For Streamlit Community Cloud, add the identity's credentials under
+**App → Settings → Secrets**:
+
+```toml
+[aws]
+aws_access_key_id = "AKIA..."
+aws_secret_access_key = "..."
+# Include this only when using temporary credentials.
+aws_session_token = "..."
+```
+
+Create a dedicated IAM identity for the app and attach a policy like this,
+replacing the `Resource` value with the exact `player_api_invoke_arn` Terraform
+output:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "execute-api:Invoke",
+      "Resource": "arn:aws:execute-api:us-east-1:<account-id>:<api-id>/$default/POST/flashcard"
+    }
+  ]
+}
+```
+
+Create an access key for that identity and put it only in Streamlit's Secrets
+settings. Do not use personal administrator credentials. Access keys are
+long-lived unless rotated; rotate or revoke them if exposed. The app signs POST
+requests using SigV4; set `API_AWS_REGION` if the API is not in `us-east-1`.
+Locally, the app can continue to use Boto3's default credential chain if no
+`[aws]` secrets are configured. No local RDS credentials or SSM tunnel are
+needed for Streamlit database writes.
 
 ---
 
@@ -141,7 +172,7 @@ flashCards/
 | Group   | Install command            | Contents                              |
 | ------- | -------------------------- | ------------------------------------- |
 | Core    | `pip install -e .`         | `click`, `pydantic`                   |
-| Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`           |
+| Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`, `boto3`  |
 | GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
 | Web     | `pip install -e ".[web]"` | `streamlit`, `PyMySQL`, `boto3`       |
 

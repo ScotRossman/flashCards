@@ -1,11 +1,16 @@
 import json
 import os
 
-import boto3
 import streamlit as st
 import requests
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
+from streamlit.errors import StreamlitSecretNotFoundError
+
+try:
+    from .aws_auth import create_aws_session
+except ImportError:
+    from aws_auth import create_aws_session
 
 # api AWSURL
 API_URL = "https://62x9u9qzf1.execute-api.us-east-1.amazonaws.com/flashcard"
@@ -49,9 +54,22 @@ def fetch_question(practice_code):
 
 def post_api_action(payload):
     body = json.dumps(payload)
-    credentials = boto3.Session().get_credentials()
+    try:
+        aws_secrets = st.secrets["aws"]
+    except KeyError:
+        aws_secrets = None
+    except StreamlitSecretNotFoundError as error:
+        if error.error_id != "no-secrets-found":
+            raise
+        aws_secrets = None
+
+    credentials = create_aws_session(aws_secrets).get_credentials()
     if credentials is None:
-        raise ValueError("Configure AWS credentials to use the Lambda API.")
+        raise ValueError(
+            "AWS credentials were not found. Add an [aws] section with "
+            "aws_access_key_id and aws_secret_access_key to Streamlit secrets, "
+            "or configure the default Boto3 credential chain."
+        )
 
     request = AWSRequest(
         method="POST",
@@ -155,7 +173,7 @@ with sb_col2:
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**Score:** {st.session_state.correct_answers} correct")
 
-st.subheader(st.session_state.player_name + st.session_state.question)
+st.subheader(st.session_state.player_name + " " + st.session_state.question)
 
 if st.session_state.expected is not None:
     user_ans = st.text_input("Enter your answer:", key="user_input")
