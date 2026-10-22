@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 import json
 import sys
 from types import ModuleType
@@ -188,11 +189,23 @@ def test_get_players_returns_mysql_rows(monkeypatch):
 
 def test_get_database_overview_returns_stats_and_bounded_records(monkeypatch):
     cursor = FakeCursor(
-        fetchone_results=[(2,), (3, 8, 10)],
+        fetchone_results=[
+            (Decimal("2"),),
+            (Decimal("3"), Decimal("8"), Decimal("10")),
+        ],
         fetchall_results=[
-            [("addition", 2, 5, 6)],
-            [(2, "Grace"), (1, "Ada")],
-            [(7, "Grace", "addition", 3, 4, "2026-10-22 12:00:00")],
+            [("addition", Decimal("2"), Decimal("5"), Decimal("6"))],
+            [(Decimal("2"), "Grace"), (Decimal("1"), "Ada")],
+            [
+                (
+                    Decimal("7"),
+                    "Grace",
+                    "addition",
+                    Decimal("3"),
+                    Decimal("4"),
+                    "2026-10-22 12:00:00",
+                )
+            ],
         ],
     )
     connection = FakeConnection(cursor)
@@ -221,6 +234,7 @@ def test_get_database_overview_returns_stats_and_bounded_records(monkeypatch):
     assert "LIMIT 100" in cursor.queries[3][0]
     assert "LIMIT 100" in cursor.queries[4][0]
     assert connection.closed
+    json.dumps(overview)
 
 
 def test_connection_requires_credentials(monkeypatch):

@@ -160,9 +160,9 @@ def get_database_overview() -> dict:
             practice_stats = [
                 {
                     "practice_type": practice_type,
-                    "sessions": sessions,
-                    "correct_answers": correct,
-                    "questions_answered": total,
+                    "sessions": int(sessions),
+                    "correct_answers": int(correct),
+                    "questions_answered": int(total),
                 }
                 for practice_type, sessions, correct, total in cursor.fetchall()
             ]
@@ -174,7 +174,7 @@ def get_database_overview() -> dict:
                 LIMIT 100
                 """)
             players = [
-                {"player_id": player_id, "name": name}
+                {"player_id": int(player_id), "name": name}
                 for player_id, name in cursor.fetchall()
             ]
 
@@ -189,11 +189,11 @@ def get_database_overview() -> dict:
                 """)
             recent_sessions = [
                 {
-                    "session_id": session_id,
+                    "session_id": int(session_id),
                     "player_name": player_name,
                     "practice_type": practice_type,
-                    "score": score,
-                    "total_questions": total,
+                    "score": int(score),
+                    "total_questions": int(total),
                     "timestamp": timestamp,
                 }
                 for (
@@ -208,12 +208,12 @@ def get_database_overview() -> dict:
 
     return {
         "summary": {
-            "players": player_count,
-            "sessions": session_count,
-            "correct_answers": correct_answers,
-            "questions_answered": questions_answered,
+            "players": int(player_count),
+            "sessions": int(session_count),
+            "correct_answers": int(correct_answers),
+            "questions_answered": int(questions_answered),
             "accuracy_percent": (
-                round(correct_answers / questions_answered * 100, 1)
+                round(int(correct_answers) / int(questions_answered) * 100, 1)
                 if questions_answered
                 else 0.0
             ),
