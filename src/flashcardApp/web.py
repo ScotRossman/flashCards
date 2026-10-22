@@ -113,7 +113,62 @@ def log_session(player_id, practice_type, score, total):
     )
 
 
+def get_database_overview():
+    return post_api_action({"action": "get_database_overview"})
+
+
 # sidebar setup:
+selected_screen = st.sidebar.radio(
+    "Screen", ["Practice", "Database & stats"], horizontal=True
+)
+
+if selected_screen == "Database & stats":
+    st.header("Database & stats")
+    st.warning(
+        "This page is public and displays player names and stored practice records."
+    )
+    if st.button("Refresh data"):
+        st.rerun()
+
+    try:
+        overview = get_database_overview()
+    except (requests.RequestException, ValueError) as error:
+        st.error(f"Could not load database data: {error}")
+        st.stop()
+
+    summary = overview["summary"]
+    metric_columns = st.columns(5)
+    metric_columns[0].metric("Players", summary["players"])
+    metric_columns[1].metric("Sessions", summary["sessions"])
+    metric_columns[2].metric("Questions answered", summary["questions_answered"])
+    metric_columns[3].metric("Correct answers", summary["correct_answers"])
+    metric_columns[4].metric("Accuracy", f'{summary["accuracy_percent"]}%')
+
+    st.subheader("Stats by practice type")
+    if overview["practice_stats"]:
+        st.dataframe(
+            overview["practice_stats"], hide_index=True, use_container_width=True
+        )
+    else:
+        st.info("No practice sessions have been recorded yet.")
+
+    st.subheader("Players")
+    st.caption("Showing up to the 100 most recently added players.")
+    if overview["players"]:
+        st.dataframe(overview["players"], hide_index=True, use_container_width=True)
+    else:
+        st.info("No players have been registered yet.")
+
+    st.subheader("Recent practice sessions")
+    st.caption("Showing up to the 100 most recent sessions.")
+    if overview["recent_sessions"]:
+        st.dataframe(
+            overview["recent_sessions"], hide_index=True, use_container_width=True
+        )
+    else:
+        st.info("No practice sessions have been recorded yet.")
+    st.stop()
+
 st.sidebar.header("game setup")
 # Bind text input to session state
 st.session_state.player_name = st.sidebar.text_input(

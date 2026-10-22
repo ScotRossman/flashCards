@@ -14,9 +14,9 @@ except (ImportError, SyntaxError, ValueError):
     import constants
 
 try:
-    from .db import get_or_create_player, log_session
+    from .db import get_database_overview, get_or_create_player, log_session
 except (ImportError, SyntaxError, ValueError):
-    from db import get_or_create_player, log_session
+    from db import get_database_overview, get_or_create_player, log_session
 
 
 def start():
@@ -156,6 +156,9 @@ def lambda_handler(event, context):
 
             log_session(player_id, practice_type, score, total)
             return _json_response(200, {"status": "session_logged"})
+
+        if action == "get_database_overview":
+            return _json_response(200, get_database_overview())
 
         else:
             return _json_response(400, {"error": "Unsupported POST action."})
