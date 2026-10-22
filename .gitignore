@@ -31,6 +31,7 @@ dist/
 # File archives generated locally during zip bundling
 *.zip
 terraform/lambda_function.zip
+terraform/lambda-package/
 
 # Variable files that might contain private tokens or overrides
 *.tfvars
@@ -44,3 +45,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# ==========================================
+#  Miscellaneous
+# ==========================================
+.agents/skills/
+skills-lock.json

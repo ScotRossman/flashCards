@@ -1,16 +1,23 @@
+import json
+import os
+
+import boto3
 import streamlit as st
 import requests
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 
 # api AWSURL
 API_URL = "https://62x9u9qzf1.execute-api.us-east-1.amazonaws.com/flashcard"
 
-st.title("🧮 Math Flashcards")
+st.title("🧮 Math Flashcards with db")
 
 # Initialize cross-refresh session states
 if "question" not in st.session_state:
     st.session_state.question = "Welcome to the flashcard practice application. Enter your name and select what type of math you want to practice"
     st.session_state.expected = None
     st.session_state.correct_answers = 0
+    st.session_state.wrong_answers = 0
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
 
@@ -20,12 +27,16 @@ if "game_started" not in st.session_state:
     st.session_state.game_started = False
 if "player_name" not in st.session_state:
     st.session_state.player_name = ""
+if "player_id" not in st.session_state:
+    st.session_state.player_id = 0
 
 
 # function to fetch a question
 def fetch_question(practice_code):
     try:
-        response = requests.get(f"{API_URL}?practice_type={practice_code}").json()
+        response = requests.get(f"{API_URL}?practice_type={practice_code}", timeout=10)
+        response.raise_for_status()
+        response = response.json()
         # If your Lambda returns the structure you defined:
         st.session_state.question = response.get("question")
         st.session_state.expected = response.get("expected_answer")
@@ -34,6 +45,54 @@ def fetch_question(practice_code):
     except Exception as e:
         # Fallback if the API response structure differs slightly
         st.error(f"Could not fetch question: {e}")
+
+
+def post_api_action(payload):
+    body = json.dumps(payload)
+    credentials = boto3.Session().get_credentials()
+    if credentials is None:
+        raise ValueError("Configure AWS credentials to use the Lambda API.")
+
+    request = AWSRequest(
+        method="POST",
+        url=API_URL,
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    SigV4Auth(
+        credentials.get_frozen_credentials(),
+        "execute-api",
+        os.getenv("API_AWS_REGION", "us-east-1"),
+    ).add_auth(request)
+
+    response = requests.post(
+        API_URL,
+        data=body,
+        headers=dict(request.headers),
+        timeout=10,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_or_create_player(name):
+    payload = post_api_action({"action": "get_or_create_player", "name": name})
+    player_id = payload.get("player_id")
+    if not isinstance(player_id, int) or player_id <= 0:
+        raise ValueError("Player API returned an invalid player ID.")
+    return player_id
+
+
+def log_session(player_id, practice_type, score, total):
+    post_api_action(
+        {
+            "action": "log_session",
+            "player_id": player_id,
+            "practice_type": practice_type,
+            "score": score,
+            "total": total,
+        }
+    )
 
 
 # sidebar setup:
@@ -54,28 +113,49 @@ sb_col1, sb_col2 = st.sidebar.columns(2)
 with sb_col1:
     if st.session_state.player_name != "" and selected_option is not None:
         if sb_col1.button("Start"):
-            fetch_question(practice_type_code)
-            st.rerun()
+            try:
+                st.session_state.player_id = get_or_create_player(
+                    st.session_state.player_name
+                )
+            except (requests.RequestException, ValueError) as e:
+                st.error(f"Could not create or find player: {e}")
+            else:
+                fetch_question(practice_type_code)
+                st.rerun()
 with sb_col2:
     if st.session_state.player_name != "" and selected_option is not None:
         if sb_col2.button("quit"):
-            st.session_state.question = (
-                "Welcome to the flashcard practice application. Enter your name and"
-                " select what type of math you want to practice"
-            )
-            st.session_state.expected = None
-            st.session_state.correct_answers = 0
-            st.session_state.submitted = False
-            st.session_state.user_input = ""
-            selected_option = None
-            st.session_state.player_name = ""
-            st.rerun()
+            try:
+                if st.session_state.player_id > 0:
+                    log_session(
+                        st.session_state.player_id,
+                        selected_option,
+                        st.session_state.correct_answers,
+                        st.session_state.correct_answers
+                        + st.session_state.wrong_answers,
+                    )
+            except (requests.RequestException, ValueError) as e:
+                st.error(f"Could not save the practice session: {e}")
+            else:
+                st.session_state.question = (
+                    "Welcome to the flashcard practice application. Enter your name and"
+                    " select what type of math you want to practice"
+                )
+                st.session_state.expected = None
+                st.session_state.correct_answers = 0
+                st.session_state.wrong_answers = 0
+                st.session_state.submitted = False
+                st.session_state.user_input = ""
+                selected_option = None
+                st.session_state.player_name = ""
+                st.session_state.player_id = 0
+                st.rerun()
 
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**Score:** {st.session_state.correct_answers} correct")
 
-st.subheader(st.session_state.question)
+st.subheader(st.session_state.player_name + st.session_state.question)
 
 if st.session_state.expected is not None:
     user_ans = st.text_input("Enter your answer:", key="user_input")
@@ -86,9 +166,11 @@ if st.session_state.expected is not None:
             if int(user_ans) == st.session_state.expected:
                 st.success("Correct! Great job!")
                 st.session_state.correct_answers += 1
+                st.rerun()
 
             else:
                 st.error(f"Incorrect. The answer was {st.session_state.expected}")
+                st.session_state.wrong_answers += 1
     with col2:
         if st.button("next Question", disabled=not st.session_state.submitted):
             fetch_question(practice_type_code)

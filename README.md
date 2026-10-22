@@ -71,6 +71,51 @@ flashcards
 
 Because the project is installed in editable mode (`pip install -e`), edit the code in your IDE and simply re-run the command to see your changes.
 
+### Run the Streamlit app against RDS MySQL
+
+Streamlit sends player creation/lookups and completed-session writes to the
+Lambda API. The Lambda function connects to the `flashcards` schema on the
+`flashcard-1` RDS instance. Install the web dependencies with:
+
+```powershell
+pip install -e ".[web]"
+```
+
+Before deploying the Lambda changes:
+
+```powershell
+.\terraform\build_lambda.ps1
+Set-Location .\terraform
+terraform plan -var 'db_secret_arn=<Secrets Manager secret ARN>' -var 'lambda_subnet_ids=["<private-subnet-id>"]' -var 'lambda_security_group_ids=["<lambda-security-group-id>"]'
+```
+
+For GitHub Actions deployment, add these as repository variables under
+**Settings → Secrets and variables → Actions → Variables**:
+
+- `DB_SECRET_ARN`: the Secrets Manager secret ARN.
+- `LAMBDA_SUBNET_IDS`: a JSON array of private subnet IDs, such as
+  `["subnet-abc123","subnet-def456"]`.
+- `LAMBDA_SECURITY_GROUP_IDS`: a JSON array of Lambda security group IDs, such
+  as `["sg-abc123"]`.
+
+The deployment workflow maps these to Terraform's `TF_VAR_*` inputs and checks
+that all are set before applying. These values are identifiers, not passwords;
+the database username and password remain in Secrets Manager.
+
+The secret must contain JSON keys `username` and `password`. Put the Lambda in
+private subnets in the RDS VPC, with outbound access to RDS and Secrets Manager
+(through a Secrets Manager VPC endpoint or NAT). Allow inbound TCP 3306 on the
+RDS security group from the Lambda security group only. The Lambda execution
+role receives permission to read only the configured secret. Use a MySQL user
+limited to the `flashcards` schema, not the RDS master account.
+
+The POST route uses AWS IAM authorization. Grant the AWS identity used to run
+Streamlit `execute-api:Invoke` on the ARN printed by the
+`player_api_invoke_arn` Terraform output, and configure local AWS credentials
+for that identity. The app signs its POST requests using SigV4; set
+`API_AWS_REGION` if the API is not in `us-east-1`. No local RDS credentials or
+SSM tunnel are needed for Streamlit database writes.
+
 ---
 
 ## 🧱 Project Structure
@@ -98,7 +143,7 @@ flashCards/
 | Core    | `pip install -e .`         | `click`, `pydantic`                   |
 | Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`           |
 | GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
-| Web     | `pip install -e ".[web]"`  | `fastapi`, `uvicorn` *(planned)*      |
+| Web     | `pip install -e ".[web]"` | `streamlit`, `PyMySQL`, `boto3`       |
 
 ### Run the tests
 
