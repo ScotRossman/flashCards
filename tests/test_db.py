@@ -1,4 +1,8 @@
 from datetime import datetime
+import json
+import sys
+from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
 
@@ -84,6 +88,33 @@ def test_connect_verifies_hostname_by_default(monkeypatch):
 
     assert options["ssl"].verify_mode == db.ssl.CERT_REQUIRED
     assert options["ssl"].check_hostname is True
+
+
+def test_connect_loads_credentials_from_secrets_manager(monkeypatch):
+    _, options = mock_connection(monkeypatch, FakeCursor())
+    monkeypatch.setenv(
+        "DB_SECRET_ARN", "arn:aws:secretsmanager:region:account:secret:test"
+    )
+    monkeypatch.delenv("DB_USER", raising=False)
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    secrets_manager = ModuleType("boto3")
+    secrets_client = Mock()
+    secrets_client.get_secret_value.return_value = {
+        "SecretString": json.dumps(
+            {"username": "secret_user", "password": "secret_password"}
+        )
+    }
+    secrets_manager.client = Mock(return_value=secrets_client)
+    monkeypatch.setitem(sys.modules, "boto3", secrets_manager)
+
+    db._connect()
+
+    assert options["user"] == "secret_user"
+    assert options["password"] == "secret_password"
+    secrets_manager.client.assert_called_once_with("secretsmanager")
+    secrets_client.get_secret_value.assert_called_once_with(
+        SecretId="arn:aws:secretsmanager:region:account:secret:test"
+    )
 
 
 def test_init_db_checks_expected_tables(monkeypatch):

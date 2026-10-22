@@ -3,7 +3,6 @@ import os
 import ssl
 from datetime import datetime
 
-import boto3
 import pymysql
 
 DB_HOST = "flashcard-1.c47iysguc25a.us-east-1.rds.amazonaws.com"
@@ -28,6 +27,8 @@ def _connect():
     """Opens a TLS-protected connection to the configured MySQL database."""
     secret_arn = os.getenv("DB_SECRET_ARN")
     if secret_arn:
+        import boto3
+
         secret_response = boto3.client("secretsmanager").get_secret_value(
             SecretId=secret_arn
         )
