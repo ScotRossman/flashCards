@@ -60,7 +60,9 @@ def mock_connection(monkeypatch, cursor):
         options.update(kwargs)
         return connection
 
-    monkeypatch.setattr(db.pymysql, "connect", connect)
+    pymysql = ModuleType("pymysql")
+    pymysql.connect = connect
+    monkeypatch.setitem(sys.modules, "pymysql", pymysql)
     monkeypatch.setenv("DB_USER", "flashcards_app")
     monkeypatch.setenv("DB_PASSWORD", "test-password")
     return connection, options

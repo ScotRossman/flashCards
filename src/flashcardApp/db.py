@@ -3,8 +3,6 @@ import os
 import ssl
 from datetime import datetime
 
-import pymysql
-
 DB_HOST = "flashcard-1.c47iysguc25a.us-east-1.rds.amazonaws.com"
 DB_PORT = 3306
 DB_NAME = "flashcards"
@@ -25,6 +23,8 @@ def _environment_flag(name: str, default: bool) -> bool:
 
 def _connect():
     """Opens a TLS-protected connection to the configured MySQL database."""
+    import pymysql
+
     secret_arn = os.getenv("DB_SECRET_ARN")
     if secret_arn:
         import boto3
