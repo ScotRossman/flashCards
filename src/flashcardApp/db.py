@@ -23,8 +23,6 @@ def _environment_flag(name: str, default: bool) -> bool:
 
 def _connect():
     """Opens a TLS-protected connection to the configured MySQL database."""
-    import pymysql
-
     secret_arn = os.getenv("DB_SECRET_ARN")
     if secret_arn:
         import boto3
@@ -41,6 +39,8 @@ def _connect():
 
     if not username or not password:
         raise RuntimeError("Configure DB_SECRET_ARN or set DB_USER and DB_PASSWORD.")
+
+    import pymysql
 
     try:
         port = int(os.getenv("DB_PORT", str(DB_PORT)))
