@@ -173,7 +173,7 @@ flashCards/
 | Group   | Install command            | Contents                              |
 | ------- | -------------------------- | ------------------------------------- |
 | Core    | `pip install -e .`         | `click`, `pydantic`                   |
-| Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`           |
+| Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`, `boto3`  |
 | GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
 | Web     | `pip install -e ".[web]"` | `streamlit`, `PyMySQL`, `boto3`       |
 
