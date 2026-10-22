@@ -31,13 +31,70 @@ variable "db_secret_arn" {
 }
 
 variable "lambda_subnet_ids" {
-  description = "Private subnet IDs in the RDS VPC for the Lambda function."
+  description = "Subnet IDs in the RDS VPC for the Lambda function and Secrets Manager endpoint."
   type        = list(string)
 }
 
-variable "lambda_security_group_ids" {
-  description = "Security group IDs for Lambda; RDS must allow TCP 3306 from this security group."
-  type        = list(string)
+variable "rds_security_group_id" {
+  description = "RDS security group ID that should allow MySQL access from the Lambda security group."
+  type        = string
+}
+
+data "aws_region" "current" {}
+
+data "aws_security_group" "rds" {
+  id = var.rds_security_group_id
+}
+
+resource "aws_security_group" "lambda" {
+  name        = "math-flashcard-lambda"
+  description = "Outbound access for the math flashcard Lambda."
+  vpc_id      = data.aws_security_group.rds.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "secrets_manager_endpoint" {
+  name        = "math-flashcard-secrets-manager-endpoint"
+  description = "HTTPS access from the math flashcard Lambda to Secrets Manager."
+  vpc_id      = data.aws_security_group.rds.vpc_id
+
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.lambda.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_vpc_endpoint" "secrets_manager" {
+  vpc_id              = data.aws_security_group.rds.vpc_id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = var.lambda_subnet_ids
+  security_group_ids  = [aws_security_group.secrets_manager_endpoint.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_lambda" {
+  security_group_id            = var.rds_security_group_id
+  referenced_security_group_id = aws_security_group.lambda.id
+  description                  = "Allow MySQL access from the math flashcard Lambda."
+  ip_protocol                  = "tcp"
+  from_port                    = 3306
+  to_port                      = 3306
 }
 
 # 3. Security (IAM Role & Policy) for Lambda Execution
@@ -100,7 +157,7 @@ resource "aws_lambda_function" "flashcard_backend" {
 
   vpc_config {
     subnet_ids         = var.lambda_subnet_ids
-    security_group_ids = var.lambda_security_group_ids
+    security_group_ids = [aws_security_group.lambda.id]
   }
 }
 
