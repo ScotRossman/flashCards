@@ -87,7 +87,7 @@ def post_api_action(payload):
         API_URL,
         data=body,
         headers=dict(request.headers),
-        timeout=10,
+        timeout=20,
     )
     response.raise_for_status()
     return response.json()
