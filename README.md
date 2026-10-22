@@ -90,6 +90,19 @@ Set-Location .\terraform
 terraform plan -var 'db_secret_arn=<Secrets Manager secret ARN>' -var 'lambda_subnet_ids=["<private-subnet-id>"]' -var 'lambda_security_group_ids=["<lambda-security-group-id>"]'
 ```
 
+For GitHub Actions deployment, add these as repository variables under
+**Settings → Secrets and variables → Actions → Variables**:
+
+- `DB_SECRET_ARN`: the Secrets Manager secret ARN.
+- `LAMBDA_SUBNET_IDS`: a JSON array of private subnet IDs, such as
+  `["subnet-abc123","subnet-def456"]`.
+- `LAMBDA_SECURITY_GROUP_IDS`: a JSON array of Lambda security group IDs, such
+  as `["sg-abc123"]`.
+
+The deployment workflow maps these to Terraform's `TF_VAR_*` inputs and checks
+that all are set before applying. These values are identifiers, not passwords;
+the database username and password remain in Secrets Manager.
+
 The secret must contain JSON keys `username` and `password`. Put the Lambda in
 private subnets in the RDS VPC, with outbound access to RDS and Secrets Manager
 (through a Secrets Manager VPC endpoint or NAT). Allow inbound TCP 3306 on the
