@@ -134,3 +134,91 @@ def get_players() -> list[tuple[int, str]]:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id, name FROM players ORDER BY name")
             return cursor.fetchall()
+
+
+def get_database_overview() -> dict:
+    """Fetches aggregate stats and bounded samples of players and sessions."""
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM players")
+            player_count = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COUNT(*), COALESCE(SUM(score), 0),
+                       COALESCE(SUM(total_questions), 0)
+                FROM sessions
+                """)
+            session_count, correct_answers, questions_answered = cursor.fetchone()
+
+            cursor.execute("""
+                SELECT practice_type, COUNT(*), COALESCE(SUM(score), 0),
+                       COALESCE(SUM(total_questions), 0)
+                FROM sessions
+                GROUP BY practice_type
+                ORDER BY practice_type
+                """)
+            practice_stats = [
+                {
+                    "practice_type": practice_type,
+                    "sessions": sessions,
+                    "correct_answers": correct,
+                    "questions_answered": total,
+                }
+                for practice_type, sessions, correct, total in cursor.fetchall()
+            ]
+
+            cursor.execute("""
+                SELECT id, name
+                FROM players
+                ORDER BY id DESC
+                LIMIT 100
+                """)
+            players = [
+                {"player_id": player_id, "name": name}
+                for player_id, name in cursor.fetchall()
+            ]
+
+            cursor.execute("""
+                SELECT s.id, p.name, s.practice_type, s.score,
+                       s.total_questions,
+                       DATE_FORMAT(s.`timestamp`, '%Y-%m-%d %H:%i:%s')
+                FROM sessions s
+                JOIN players p ON p.id = s.player_id
+                ORDER BY s.`timestamp` DESC, s.id DESC
+                LIMIT 100
+                """)
+            recent_sessions = [
+                {
+                    "session_id": session_id,
+                    "player_name": player_name,
+                    "practice_type": practice_type,
+                    "score": score,
+                    "total_questions": total,
+                    "timestamp": timestamp,
+                }
+                for (
+                    session_id,
+                    player_name,
+                    practice_type,
+                    score,
+                    total,
+                    timestamp,
+                ) in cursor.fetchall()
+            ]
+
+    return {
+        "summary": {
+            "players": player_count,
+            "sessions": session_count,
+            "correct_answers": correct_answers,
+            "questions_answered": questions_answered,
+            "accuracy_percent": (
+                round(correct_answers / questions_answered * 100, 1)
+                if questions_answered
+                else 0.0
+            ),
+        },
+        "practice_stats": practice_stats,
+        "players": players,
+        "recent_sessions": recent_sessions,
+    }

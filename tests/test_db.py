@@ -10,9 +10,12 @@ from flashcardApp import db
 
 
 class FakeCursor:
-    def __init__(self, fetchone_results=(), fetchall_result=()):
+    def __init__(self, fetchone_results=(), fetchall_result=(), fetchall_results=None):
         self.fetchone_results = iter(fetchone_results)
         self.fetchall_result = fetchall_result
+        self.fetchall_results = (
+            iter(fetchall_results) if fetchall_results is not None else None
+        )
         self.queries = []
         self.lastrowid = 24
 
@@ -29,6 +32,8 @@ class FakeCursor:
         return next(self.fetchone_results, None)
 
     def fetchall(self):
+        if self.fetchall_results is not None:
+            return next(self.fetchall_results)
         return self.fetchall_result
 
 
@@ -179,6 +184,43 @@ def test_get_players_returns_mysql_rows(monkeypatch):
     mock_connection(monkeypatch, cursor)
 
     assert db.get_players() == rows
+
+
+def test_get_database_overview_returns_stats_and_bounded_records(monkeypatch):
+    cursor = FakeCursor(
+        fetchone_results=[(2,), (3, 8, 10)],
+        fetchall_results=[
+            [("addition", 2, 5, 6)],
+            [(2, "Grace"), (1, "Ada")],
+            [(7, "Grace", "addition", 3, 4, "2026-10-22 12:00:00")],
+        ],
+    )
+    connection = FakeConnection(cursor)
+    monkeypatch.setattr(db, "_connect", lambda: connection)
+
+    overview = db.get_database_overview()
+
+    assert overview["summary"] == {
+        "players": 2,
+        "sessions": 3,
+        "correct_answers": 8,
+        "questions_answered": 10,
+        "accuracy_percent": 80.0,
+    }
+    assert overview["practice_stats"] == [
+        {
+            "practice_type": "addition",
+            "sessions": 2,
+            "correct_answers": 5,
+            "questions_answered": 6,
+        }
+    ]
+    assert overview["players"][0] == {"player_id": 2, "name": "Grace"}
+    assert overview["recent_sessions"][0]["session_id"] == 7
+    assert len(cursor.queries) == 5
+    assert "LIMIT 100" in cursor.queries[3][0]
+    assert "LIMIT 100" in cursor.queries[4][0]
+    assert connection.closed
 
 
 def test_connection_requires_credentials(monkeypatch):

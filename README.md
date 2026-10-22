@@ -82,6 +82,11 @@ Lambda API. The Lambda function connects to the `flashcards` schema on the
 pip install -e ".[web]"
 ```
 
+The app includes a **Database & stats** screen. It displays aggregate practice
+statistics, up to 100 player records, and up to 100 recent sessions. This screen
+is public, so names and practice records are visible to anyone who can access
+the app.
+
 Before deploying the Lambda changes:
 
 ```powershell

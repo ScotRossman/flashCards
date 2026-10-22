@@ -242,6 +242,33 @@ def test_lambda_handler_logs_session(monkeypatch):
     assert captured_sessions == [(42, "addition", 3, 4)]
 
 
+def test_lambda_handler_returns_database_overview(monkeypatch):
+    overview = {
+        "summary": {
+            "players": 1,
+            "sessions": 0,
+            "correct_answers": 0,
+            "questions_answered": 0,
+            "accuracy_percent": 0.0,
+        },
+        "practice_stats": [],
+        "players": [{"player_id": 1, "name": "Ada"}],
+        "recent_sessions": [],
+    }
+    monkeypatch.setattr(main, "get_database_overview", lambda: overview)
+
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({"action": "get_database_overview"}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == overview
+
+
 @pytest.mark.parametrize(
     ("body", "expected_error"),
     [
