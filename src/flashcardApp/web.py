@@ -26,6 +26,8 @@ if "question" not in st.session_state:
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
 
+if "answer_feedback" not in st.session_state:
+    st.session_state.answer_feedback = None
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""
 if "game_started" not in st.session_state:
@@ -46,6 +48,7 @@ def fetch_question(practice_code):
         st.session_state.question = response.get("question")
         st.session_state.expected = response.get("expected_answer")
         st.session_state.submitted = False
+        st.session_state.answer_feedback = None
         st.session_state.user_input = ""
     except Exception as e:
         # Fallback if the API response structure differs slightly
@@ -218,6 +221,7 @@ with sb_col2:
                 st.session_state.correct_answers = 0
                 st.session_state.wrong_answers = 0
                 st.session_state.submitted = False
+                st.session_state.answer_feedback = None
                 st.session_state.user_input = ""
                 selected_option = None
                 st.session_state.player_name = ""
@@ -234,17 +238,30 @@ if st.session_state.expected is not None:
     user_ans = st.text_input("Enter your answer:", key="user_input")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Submit"):
-            st.session_state.submitted = True
-            if int(user_ans) == st.session_state.expected:
-                st.success("Correct! Great job!")
-                st.session_state.correct_answers += 1
-                st.rerun()
-
+        if st.button("Submit", disabled=st.session_state.submitted):
+            try:
+                answer = int(user_ans)
+            except ValueError:
+                st.session_state.answer_feedback = "Enter a whole number."
             else:
-                st.error(f"Incorrect. The answer was {st.session_state.expected}")
-                st.session_state.wrong_answers += 1
+                st.session_state.submitted = True
+                st.session_state.answer_feedback = answer == st.session_state.expected
+                if st.session_state.answer_feedback:
+                    st.session_state.correct_answers += 1
+                else:
+                    st.session_state.wrong_answers += 1
+
+    if st.session_state.answer_feedback is True:
+        st.success("Correct! Great job!")
+    elif st.session_state.answer_feedback is False:
+        st.error(f"Incorrect. The answer was {st.session_state.expected}")
+    elif st.session_state.answer_feedback:
+        st.warning(st.session_state.answer_feedback)
+
     with col2:
-        if st.button("next Question", disabled=not st.session_state.submitted):
-            fetch_question(practice_type_code)
-            st.rerun()
+        st.button(
+            "next Question",
+            disabled=not st.session_state.submitted,
+            on_click=fetch_question,
+            args=(practice_type_code,),
+        )
