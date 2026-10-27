@@ -291,15 +291,19 @@ def get_player_stats(player_id: int) -> dict | None:
         "practice_stats": practice_stats,
     }
 
+
 def get_player_sessions(player_id: int) -> list[tuple]:
     """Fetches all sessions for a specific player."""
     with _connect() as connection:
         with connection.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT s.id, s.practice_type, s.score, s.total_questions,
                        DATE_FORMAT(s.`timestamp`, '%Y-%m-%d %H:%i:%s')
                 FROM sessions s
                 WHERE s.player_id = %s
                 ORDER BY s.`timestamp` DESC, s.id DESC
-                """, (player_id,))
+                """,
+                (player_id,),
+            )
             return cursor.fetchall()
