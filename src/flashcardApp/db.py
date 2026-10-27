@@ -222,3 +222,88 @@ def get_database_overview() -> dict:
         "players": players,
         "recent_sessions": recent_sessions,
     }
+
+
+def get_player_stats(player_id: int) -> dict | None:
+    """Returns lifetime practice totals and per-type stats for one player."""
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id, p.name, COUNT(s.id),
+                       COALESCE(SUM(s.score), 0),
+                       COALESCE(SUM(s.total_questions), 0)
+                FROM players p
+                LEFT JOIN sessions s ON s.player_id = p.id
+                WHERE p.id = %s
+                GROUP BY p.id, p.name
+                """,
+                (player_id,),
+            )
+            player_row = cursor.fetchone()
+            if player_row is None:
+                return None
+
+            (
+                returned_player_id,
+                name,
+                sessions,
+                correct_answers,
+                questions_answered,
+            ) = player_row
+
+            cursor.execute(
+                """
+                SELECT practice_type, COUNT(*), COALESCE(SUM(score), 0),
+                       COALESCE(SUM(total_questions), 0)
+                FROM sessions
+                WHERE player_id = %s
+                GROUP BY practice_type
+                ORDER BY practice_type
+                """,
+                (player_id,),
+            )
+            practice_stats = [
+                {
+                    "practice_type": practice_type,
+                    "sessions": int(session_count),
+                    "correct_answers": int(correct),
+                    "questions_answered": int(total),
+                    "accuracy_percent": (
+                        round(int(correct) / int(total) * 100, 1) if total else 0.0
+                    ),
+                }
+                for practice_type, session_count, correct, total in cursor.fetchall()
+            ]
+
+    return {
+        "player": {"player_id": int(returned_player_id), "name": name},
+        "summary": {
+            "sessions": int(sessions),
+            "correct_answers": int(correct_answers),
+            "questions_answered": int(questions_answered),
+            "accuracy_percent": (
+                round(int(correct_answers) / int(questions_answered) * 100, 1)
+                if questions_answered
+                else 0.0
+            ),
+        },
+        "practice_stats": practice_stats,
+    }
+
+
+def get_player_sessions(player_id: int) -> list[tuple]:
+    """Fetches all sessions for a specific player."""
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT s.id, s.practice_type, s.score, s.total_questions,
+                       DATE_FORMAT(s.`timestamp`, '%Y-%m-%d %H:%i:%s')
+                FROM sessions s
+                WHERE s.player_id = %s
+                ORDER BY s.`timestamp` DESC, s.id DESC
+                """,
+                (player_id,),
+            )
+            return cursor.fetchall()

@@ -24,6 +24,8 @@ A Python flashcard application for studying and retaining information, starting 
 ## 🚀 Features
 
 - **Interactive terminal study sessions:** create, review, and manage flashcards from the command line.
+- **Streamlit web UI:** practice math flashcards and view database-backed practice statistics.
+- **React web UI:** frontend scaffold for a separate browser-based interface; implementation is planned.
 - **Installable command:** installs a `flashcards` command via the project's console-script entry point.
 - **Editable installs:** code changes take effect on the next run without reinstalling.
 - **Automated quality checks:** formatting with `black`, tests with `pytest` and `pytest-cov`.
@@ -71,15 +73,24 @@ flashcards
 
 Because the project is installed in editable mode (`pip install -e`), edit the code in your IDE and simply re-run the command to see your changes.
 
-### Run the Streamlit app against RDS MySQL
+### Run the Streamlit web UI
 
-Streamlit sends player creation/lookups and completed-session writes to the
-Lambda API. The Lambda function connects to the `flashcards` schema on the
-`flashcard-1` RDS instance. Install the web dependencies with:
+Install the web dependencies and start Streamlit from the repository root:
 
 ```powershell
 pip install -e ".[web]"
+streamlit run src/flashcardApp/web.py
 ```
+
+The Streamlit UI calls the deployed API Gateway and Lambda backend. Lambda
+connects to the `flashcards` schema on the `flashcard-1` RDS MySQL instance;
+the local UI does not need direct database credentials or an RDS tunnel.
+
+### Streamlit backend and deployment notes
+
+Streamlit sends player creation/lookups and completed-session writes to the
+Lambda API. The Lambda function connects to the `flashcards` schema on the
+`flashcard-1` RDS instance.
 
 The app includes a **Database & stats** screen. It displays aggregate practice
 statistics, up to 100 player records, and up to 100 recent sessions. This screen
@@ -120,6 +131,11 @@ The POST route uses AWS IAM authorization. Grant the identity used by Streamlit
 output. For Streamlit Community Cloud, add the identity's credentials under
 **App → Settings → Secrets**:
 
+The Lambda POST action `get_player_stats` accepts a positive `player_id` and
+returns that player's lifetime totals and totals grouped by practice type. It
+returns `404` when the player ID is not found. This action uses the same
+IAM-authorized POST route.
+
 ```toml
 [aws]
 aws_access_key_id = "AKIA..."
@@ -155,17 +171,36 @@ needed for Streamlit database writes.
 
 ---
 
+### React web UI (planned)
+
+The `frontend/` directory is the starting structure for a React frontend. It is
+currently a scaffold; React dependencies, application components, and hosting
+configuration have not yet been added. The intended hosting direction is a
+static frontend host such as AWS Amplify Hosting, calling the existing API
+Gateway/Lambda backend. Before the browser UI makes protected write requests,
+design browser-appropriate API authorization; never put AWS access keys or
+database credentials in frontend code. See the [AWS Amplify Hosting
+guide](https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html).
+
 ## 🧱 Project Structure
 
 ```text
 flashCards/
+├── frontend/                 # React UI scaffold (implementation planned)
+│   ├── public/
+│   └── src/
+│       ├── app/
+│       ├── components/
+│       ├── features/
+│       │   ├── practice/
+│       │   └── stats/
+│       ├── services/
+│       └── types/
 ├── src/
-│   └── flashcardApp/
-│       ├── main.py          # Entry point (start() is wired to the `flashcards` command)
-│       ├── operations.py    # Flashcard and study logic
-│       └── constants.py     # Shared constants
-├── tests/                   # pytest test suite
-├── pyproject.toml           # Packaging, dependencies, tool configuration
+│   └── flashcardApp/         # Python CLI, Streamlit UI, Lambda handler, and database code
+├── terraform/                # API Gateway, Lambda, and RDS connectivity infrastructure
+├── tests/                    # pytest test suite
+├── pyproject.toml            # Python packaging, dependencies, and tool configuration
 └── README.md
 ```
 
@@ -175,12 +210,12 @@ flashCards/
 
 ### Dependencies
 
-| Group   | Install command            | Contents                              |
-| ------- | -------------------------- | ------------------------------------- |
-| Core    | `pip install -e .`         | `click`, `pydantic`                   |
-| Dev     | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`, `boto3`  |
-| GUI     | `pip install -e ".[gui]"`  | `PyQt6` *(planned)*                   |
-| Web     | `pip install -e ".[web]"` | `streamlit`, `PyMySQL`, `boto3`       |
+| Group        | Install command            | Contents                                       |
+| ------------ | -------------------------- | ---------------------------------------------- |
+| Core         | `pip install -e .`         | `click`, `pydantic`                            |
+| Dev          | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`, `boto3`            |
+| Streamlit UI | `pip install -e ".[web]"`  | `streamlit`, `PyMySQL`, `boto3`                |
+| React UI     | Not set up yet             | React toolchain and dependencies are not added |
 
 ### Run the tests
 
@@ -222,8 +257,9 @@ GitHub Actions runs on every push and pull request to the `dev` branch:
 ## 🗺️ Roadmap
 
 - [x] Command-line interface
-- [ ] Desktop GUI (`gui` extra)
-- [ ] Web interface (`web` extra)
+- [x] Streamlit web UI
+- [ ] React web UI
+- [ ] Host the React UI and configure browser-safe API authorization
 - [ ] Raise test coverage across `main.py` and `operations.py`
 
 ---
