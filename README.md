@@ -136,6 +136,12 @@ returns that player's lifetime totals and totals grouped by practice type. It
 returns `404` when the player ID is not found. This action uses the same
 IAM-authorized POST route.
 
+To see the API actions supported by the deployed Lambda, request
+`GET <API_URL>?action=capabilities`, replacing `<API_URL>` with the API URL
+above. The response lists each action's HTTP method, authorization requirement,
+purpose, and parameters. This endpoint describes the public API operations; it
+does not expose internal Lambda implementation details.
+
 ```toml
 [aws]
 aws_access_key_id = "AKIA..."

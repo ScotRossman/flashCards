@@ -165,6 +165,24 @@ def test_lambda_handler_defaults_to_addition_for_missing_or_invalid_type(
     }
 
 
+def test_lambda_handler_lists_available_api_actions():
+    response = lambda_handler(
+        {"queryStringParameters": {"action": "capabilities"}}, None
+    )
+
+    assert response["statusCode"] == 200
+    actions = json.loads(response["body"])["actions"]
+    assert [action["name"] for action in actions] == [
+        "get_question",
+        "get_or_create_player",
+        "log_session",
+        "get_database_overview",
+        "get_player_stats",
+    ]
+    assert actions[0]["authorization"] == "public"
+    assert all(action["authorization"] == "AWS_IAM" for action in actions[1:])
+
+
 @pytest.mark.parametrize(
     ("user_answer", "expected_answer", "is_correct", "message"),
     [

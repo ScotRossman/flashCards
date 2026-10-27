@@ -190,6 +190,67 @@ def lambda_handler(event, context):
             return _json_response(400, {"error": "Unsupported POST action."})
 
     params = event.get("queryStringParameters") or {}
+    if params.get("action") == "capabilities":
+        return _json_response(
+            200,
+            {
+                "actions": [
+                    {
+                        "name": "get_question",
+                        "method": "GET",
+                        "authorization": "public",
+                        "description": "Generate a math question.",
+                        "parameters": {
+                            "practice_type": {
+                                "type": "integer",
+                                "values": [1, 2, 3, 4],
+                                "optional": True,
+                            }
+                        },
+                    },
+                    {
+                        "name": "get_or_create_player",
+                        "method": "POST",
+                        "authorization": "AWS_IAM",
+                        "description": "Find or create a player by name.",
+                        "parameters": {"name": {"type": "string", "required": True}},
+                    },
+                    {
+                        "name": "log_session",
+                        "method": "POST",
+                        "authorization": "AWS_IAM",
+                        "description": "Save a completed practice session.",
+                        "parameters": {
+                            "player_id": {"type": "integer", "required": True},
+                            "practice_type": {
+                                "type": "string",
+                                "values": list(constants.practice_type.values()),
+                                "required": True,
+                            },
+                            "score": {"type": "integer", "required": True},
+                            "total": {"type": "integer", "required": True},
+                        },
+                    },
+                    {
+                        "name": "get_database_overview",
+                        "method": "POST",
+                        "authorization": "AWS_IAM",
+                        "description": "Get aggregate statistics and recent records.",
+                        "parameters": {},
+                    },
+                    {
+                        "name": "get_player_stats",
+                        "method": "POST",
+                        "authorization": "AWS_IAM",
+                        "description": "Get lifetime statistics for one player.",
+                        "parameters": {
+                            "player_id": {"type": "integer", "required": True}
+                        },
+                    },
+                ]
+            },
+        )
+
     practice_type_inp = event.get("practice_type") or params.get("practice_type", 1)
     user_answer = event.get("user_answer", None)
     expected_answer = event.get("expected_answer", None)
