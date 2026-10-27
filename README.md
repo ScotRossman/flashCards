@@ -3,11 +3,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#-license)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![codecov](https://codecov.io/gh/ScotRossman/flashCards/branch/dev/graph/badge.svg)](https://codecov.io/gh/ScotRossman/flashCards)
-
-A flashcard application for studying and retaining information. It includes a
-Python command-line interface and a Streamlit web UI, with a React web UI now
-under development.
+[![codecov](https://codecov.io/github/ScotRossman/flashCards/graph/badge.svg?token=GEPWWJL3B5)](https://codecov.io/github/ScotRossman/flashCards)
+A Python flashcard application for studying and retaining information, starting with a terminal interface and designed to grow into a GUI and web app.
 
 ---
 
