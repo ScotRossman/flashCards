@@ -14,9 +14,19 @@ except (ImportError, SyntaxError, ValueError):
     import constants
 
 try:
-    from .db import get_database_overview, get_or_create_player, log_session
+    from .db import (
+        get_database_overview,
+        get_or_create_player,
+        get_player_stats,
+        log_session,
+    )
 except (ImportError, SyntaxError, ValueError):
-    from db import get_database_overview, get_or_create_player, log_session
+    from db import (
+        get_database_overview,
+        get_or_create_player,
+        get_player_stats,
+        log_session,
+    )
 
 
 def start():
@@ -159,6 +169,22 @@ def lambda_handler(event, context):
 
         if action == "get_database_overview":
             return _json_response(200, get_database_overview())
+
+        if action == "get_player_stats":
+            player_id = body.get("player_id")
+            if (
+                not isinstance(player_id, int)
+                or isinstance(player_id, bool)
+                or player_id <= 0
+            ):
+                return _json_response(
+                    400, {"error": "Player ID must be a positive integer."}
+                )
+
+            stats = get_player_stats(player_id)
+            if stats is None:
+                return _json_response(404, {"error": "Player was not found."})
+            return _json_response(200, stats)
 
         else:
             return _json_response(400, {"error": "Unsupported POST action."})

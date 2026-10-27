@@ -237,6 +237,73 @@ def test_get_database_overview_returns_stats_and_bounded_records(monkeypatch):
     json.dumps(overview)
 
 
+def test_get_player_stats_returns_lifetime_and_practice_type_stats(monkeypatch):
+    cursor = FakeCursor(
+        fetchone_results=[
+            (Decimal("42"), "Ada", Decimal("2"), Decimal("7"), Decimal("10"))
+        ],
+        fetchall_result=[("addition", Decimal("2"), Decimal("7"), Decimal("10"))],
+    )
+    connection = FakeConnection(cursor)
+    monkeypatch.setattr(db, "_connect", lambda: connection)
+
+    stats = db.get_player_stats(42)
+
+    assert stats == {
+        "player": {"player_id": 42, "name": "Ada"},
+        "summary": {
+            "sessions": 2,
+            "correct_answers": 7,
+            "questions_answered": 10,
+            "accuracy_percent": 70.0,
+        },
+        "practice_stats": [
+            {
+                "practice_type": "addition",
+                "sessions": 2,
+                "correct_answers": 7,
+                "questions_answered": 10,
+                "accuracy_percent": 70.0,
+            }
+        ],
+    }
+    assert cursor.queries[0][1] == (42,)
+    assert cursor.queries[1][1] == (42,)
+    assert "LEFT JOIN sessions" in cursor.queries[0][0]
+    assert connection.closed
+    json.dumps(stats)
+
+
+def test_get_player_stats_returns_empty_totals_for_player_without_sessions(
+    monkeypatch,
+):
+    cursor = FakeCursor(
+        fetchone_results=[(Decimal("42"), "Ada", 0, 0, 0)],
+        fetchall_result=[],
+    )
+    monkeypatch.setattr(db, "_connect", lambda: FakeConnection(cursor))
+
+    stats = db.get_player_stats(42)
+
+    assert stats["summary"] == {
+        "sessions": 0,
+        "correct_answers": 0,
+        "questions_answered": 0,
+        "accuracy_percent": 0.0,
+    }
+    assert stats["practice_stats"] == []
+
+
+def test_get_player_stats_returns_none_for_unknown_player(monkeypatch):
+    cursor = FakeCursor(fetchone_results=[None])
+    connection = FakeConnection(cursor)
+    monkeypatch.setattr(db, "_connect", lambda: connection)
+
+    assert db.get_player_stats(999) is None
+    assert len(cursor.queries) == 1
+    assert connection.closed
+
+
 def test_connection_requires_credentials(monkeypatch):
     monkeypatch.delenv("DB_USER", raising=False)
     monkeypatch.delenv("DB_PASSWORD", raising=False)

@@ -269,6 +269,69 @@ def test_lambda_handler_returns_database_overview(monkeypatch):
     assert json.loads(response["body"]) == overview
 
 
+def test_lambda_handler_returns_player_stats(monkeypatch):
+    stats = {
+        "player": {"player_id": 42, "name": "Ada"},
+        "summary": {
+            "sessions": 2,
+            "correct_answers": 7,
+            "questions_answered": 10,
+            "accuracy_percent": 70.0,
+        },
+        "practice_stats": [],
+    }
+    captured_ids = []
+
+    def mock_get_player_stats(player_id):
+        captured_ids.append(player_id)
+        return stats
+
+    monkeypatch.setattr(main, "get_player_stats", mock_get_player_stats)
+
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({"action": "get_player_stats", "player_id": 42}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == stats
+    assert captured_ids == [42]
+
+
+def test_lambda_handler_returns_not_found_for_unknown_player(monkeypatch):
+    monkeypatch.setattr(main, "get_player_stats", lambda player_id: None)
+
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({"action": "get_player_stats", "player_id": 999}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 404
+    assert json.loads(response["body"]) == {"error": "Player was not found."}
+
+
+@pytest.mark.parametrize("player_id", [None, 0, -1, "42", True])
+def test_lambda_handler_rejects_invalid_player_stats_id(player_id):
+    response = lambda_handler(
+        {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({"action": "get_player_stats", "player_id": player_id}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {
+        "error": "Player ID must be a positive integer."
+    }
+
+
 @pytest.mark.parametrize(
     ("body", "expected_error"),
     [
