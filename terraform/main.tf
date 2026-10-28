@@ -198,7 +198,8 @@ resource "aws_apigatewayv2_route" "player_api_route" {
   api_id             = aws_apigatewayv2_api.http_api.id
   route_key          = "POST /flashcard"
   target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
-  authorization_type = "AWS_IAM"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt_authorizer.id
 }
 
 # 8. Deploy the API Live
