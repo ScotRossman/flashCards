@@ -14,6 +14,9 @@ except ImportError:
 
 # api AWSURL
 API_URL = "https://62x9u9qzf1.execute-api.us-east-1.amazonaws.com/flashcard"
+PLAYER_API_URL = (
+    "https://62x9u9qzf1.execute-api.us-east-1.amazonaws.com/streamlit/flashcard"
+)
 
 st.title("🧮 Math Flashcards with db")
 
@@ -76,7 +79,7 @@ def post_api_action(payload):
 
     request = AWSRequest(
         method="POST",
-        url=API_URL,
+        url=PLAYER_API_URL,
         data=body,
         headers={"Content-Type": "application/json"},
     )
@@ -87,7 +90,7 @@ def post_api_action(payload):
     ).add_auth(request)
 
     response = requests.post(
-        API_URL,
+        PLAYER_API_URL,
         data=body,
         headers=dict(request.headers),
         timeout=20,
