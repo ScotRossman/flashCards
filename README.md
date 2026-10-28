@@ -113,9 +113,14 @@ For GitHub Actions deployment, add these as repository variables under
   `["subnet-abc123","subnet-def456"]`.
 - `RDS_SECURITY_GROUP_ID`: the ID of the RDS security group to allow inbound
   MySQL connections from the Lambda's dedicated security group.
+- `COGNITO_USER_POOL_ID`: the Cognito user pool ID that authenticates React
+  users.
+- `COGNITO_APP_CLIENT_ID`: the public Cognito app client ID (without a client
+  secret) used by the React app.
 
 The deployment workflow maps these to Terraform's `TF_VAR_*` inputs and checks
-that all are set before applying. These values are identifiers, not passwords;
+that all are set before applying. Create the Cognito user pool and public app
+client before deploying this configuration. These values are identifiers, not passwords;
 the database username and password remain in Secrets Manager.
 
 The secret must contain JSON keys `username` and `password`. The Terraform
@@ -126,15 +131,16 @@ processing charges. The Lambda execution role receives permission to read only
 the configured secret. Use a MySQL user limited to the `flashcards` schema,
 not the RDS master account.
 
-The POST route uses AWS IAM authorization. Grant the identity used by Streamlit
-`execute-api:Invoke` on the ARN printed by the `player_api_invoke_arn` Terraform
-output. For Streamlit Community Cloud, add the identity's credentials under
-**App → Settings → Secrets**:
+Streamlit POST requests use the IAM-authorized `/streamlit/flashcard` route.
+Grant the Streamlit identity `execute-api:Invoke` on the ARN printed by the
+`streamlit_player_api_invoke_arn` Terraform output. React uses the separate
+JWT-authorized `/flashcard` POST route. For Streamlit Community Cloud, add the
+identity's credentials under **App → Settings → Secrets**:
 
 The Lambda POST action `get_player_stats` accepts a positive `player_id` and
 returns that player's lifetime totals and totals grouped by practice type. It
-returns `404` when the player ID is not found. This action uses the same
-IAM-authorized POST route.
+returns `404` when the player ID is not found. It is available on either
+protected POST route.
 
 To see the API actions supported by the deployed Lambda, request
 `GET <API_URL>?action=capabilities`, replacing `<API_URL>` with the API URL
@@ -151,8 +157,8 @@ aws_session_token = "..."
 ```
 
 Create a dedicated IAM identity for the app and attach a policy like this,
-replacing the `Resource` value with the exact `player_api_invoke_arn` Terraform
-output:
+replacing the `Resource` value with the exact
+`streamlit_player_api_invoke_arn` Terraform output:
 
 ```json
 {
@@ -161,7 +167,7 @@ output:
     {
       "Effect": "Allow",
       "Action": "execute-api:Invoke",
-      "Resource": "arn:aws:execute-api:us-east-1:<account-id>:<api-id>/$default/POST/flashcard"
+      "Resource": "arn:aws:execute-api:us-east-1:<account-id>:<api-id>/$default/POST/streamlit/flashcard"
     }
   ]
 }

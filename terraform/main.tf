@@ -40,6 +40,16 @@ variable "rds_security_group_id" {
   type        = string
 }
 
+variable "cognito_user_pool_id" {
+  description = "Cognito user pool ID used to authenticate React users."
+  type        = string
+}
+
+variable "cognito_app_client_id" {
+  description = "Public Cognito app client ID used by the React application."
+  type        = string
+}
+
 data "aws_region" "current" {}
 
 data "aws_security_group" "rds" {
@@ -187,19 +197,38 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   integration_uri  = aws_lambda_function.flashcard_backend.arn
 }
 
-# 7. Keep question retrieval public and require IAM authorization for writes.
+resource "aws_apigatewayv2_authorizer" "jwt_authorizer" {
+  api_id           = aws_apigatewayv2_api.http_api.id
+  name             = "flashcard-cognito-jwt"
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+
+  jwt_configuration {
+    audience = [var.cognito_app_client_id]
+    issuer   = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${var.cognito_user_pool_id}"
+  }
+}
+
+# 7. Keep question retrieval public and require Cognito JWT authorization for writes.
 resource "aws_apigatewayv2_route" "get_api_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "GET /flashcard"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
-resource "aws_apigatewayv2_route" "player_api_route" {
+resource "aws_apigatewayv2_route" "react_player_api_route" {
   api_id             = aws_apigatewayv2_api.http_api.id
   route_key          = "POST /flashcard"
   target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt_authorizer.id
+}
+
+resource "aws_apigatewayv2_route" "streamlit_player_api_route" {
+  api_id             = aws_apigatewayv2_api.http_api.id
+  route_key          = "POST /streamlit/flashcard"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+  authorization_type = "AWS_IAM"
 }
 
 # 8. Deploy the API Live
@@ -224,7 +253,12 @@ output "base_url" {
   description = "The public web URL for your math flashcard backend."
 }
 
-output "player_api_invoke_arn" {
+output "react_player_api_invoke_arn" {
   value       = "${aws_apigatewayv2_api.http_api.execution_arn}/$default/POST/flashcard"
-  description = "Grant execute-api:Invoke on this ARN to the AWS identity used by Streamlit."
+  description = "Invocation ARN for React's POST route; it requires a valid Cognito JWT."
+}
+
+output "streamlit_player_api_invoke_arn" {
+  value       = "${aws_apigatewayv2_api.http_api.execution_arn}/$default/POST/streamlit/flashcard"
+  description = "Grant execute-api:Invoke on this ARN to the Streamlit IAM identity."
 }
