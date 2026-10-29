@@ -1,4 +1,4 @@
-import { getIdentityToken } from './auth'
+import { getIdentityName, getIdentityToken } from './auth'
 
 export type FlashcardQuestion = {
   status: string
@@ -33,14 +33,19 @@ export async function postAuthenticated<TResponse>(
     throw new Error('VITE_FLASHCARD_API_URL is not configured.')
   }
 
-  const identityToken = await getIdentityToken()
+  const [identityToken, identityName] = await Promise.all([
+    getIdentityToken(),
+    getIdentityName(),
+  ])
+  const requestPayload =
+    identityName && 'name' in payload ? { ...payload, name: identityName } : payload
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${identityToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
   })
 
   if (!response.ok) {
