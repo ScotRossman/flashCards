@@ -26,6 +26,15 @@ export async function getQuestion(
   return response.json() as Promise<FlashcardQuestion>
 }
 
+export async function getAuthenticatedPlayerName(): Promise<string | undefined> {
+  const response = await postAuthenticated<{ name: string | null }>({
+    action: 'get_player_name',
+  })
+  return typeof response.name === 'string' && response.name.trim()
+    ? response.name.trim()
+    : undefined
+}
+
 export async function postAuthenticated<TResponse>(
   payload: Record<string, unknown>,
 ): Promise<TResponse> {

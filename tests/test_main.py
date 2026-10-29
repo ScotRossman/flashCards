@@ -176,16 +176,18 @@ def test_lambda_handler_lists_available_api_actions():
         "get_question",
         "get_or_create_player",
         "log_session",
+        "get_player_name",
         "log_sessions",
         "get_database_overview",
         "get_player_stats",
     ]
     assert actions[0]["authorization"] == "public"
     assert actions[3]["authorization"] == "JWT"
+    assert actions[4]["authorization"] == "JWT"
     assert all(
         action["authorization"] == "AWS_IAM"
         for action in actions[1:]
-        if action["name"] != "log_sessions"
+        if action["name"] not in ("get_player_name", "log_sessions")
     )
 
 
@@ -315,6 +317,49 @@ def test_lambda_handler_logs_sessions_for_jwt_subject(monkeypatch):
             [("addition", 3, 4), ("division", 2, 3)],
         )
     ]
+
+
+def test_lambda_handler_returns_database_name_for_jwt_subject(monkeypatch):
+    captured_subjects = []
+    monkeypatch.setattr(
+        main,
+        "get_cognito_player_name",
+        lambda cognito_sub: captured_subjects.append(cognito_sub) or "Ada Lovelace",
+    )
+
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "authorizer": {
+                    "claims": {
+                        "sub": "cognito-sub-v1",
+                    }
+                },
+            },
+            "body": json.dumps({"action": "get_player_name"}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"name": "Ada Lovelace"}
+    assert captured_subjects == ["cognito-sub-v1"]
+
+
+def test_lambda_handler_rejects_player_name_lookup_without_jwt_subject():
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "authorizer": {"claims": {}},
+            },
+            "body": json.dumps({"action": "get_player_name"}),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 401
 
 
 def test_lambda_handler_logs_sessions_from_http_api_v1_claims(monkeypatch):

@@ -16,6 +16,7 @@ except (ImportError, SyntaxError, ValueError):
 try:
     from .db import (
         get_database_overview,
+        get_cognito_player_name,
         get_or_create_player,
         log_cognito_sessions,
         get_player_stats,
@@ -24,6 +25,7 @@ try:
 except (ImportError, SyntaxError, ValueError):
     from db import (
         get_database_overview,
+        get_cognito_player_name,
         get_or_create_player,
         log_cognito_sessions,
         get_player_stats,
@@ -203,6 +205,18 @@ def lambda_handler(event, context):
                 200, {"status": "sessions_logged", "sessions": len(validated_sessions)}
             )
 
+        if action == "get_player_name":
+            if not isinstance(cognito_sub, str) or not cognito_sub.strip():
+                return _json_response(
+                    401, {"error": "A valid Cognito user identity is required."}
+                )
+            if len(cognito_sub) > 255:
+                return _json_response(
+                    401, {"error": "A valid Cognito user identity is required."}
+                )
+
+            return _json_response(200, {"name": get_cognito_player_name(cognito_sub)})
+
         if isinstance(cognito_sub, str) and cognito_sub.strip():
             return _json_response(
                 403,
@@ -321,6 +335,13 @@ def lambda_handler(event, context):
                             "score": {"type": "integer", "required": True},
                             "total": {"type": "integer", "required": True},
                         },
+                    },
+                    {
+                        "name": "get_player_name",
+                        "method": "POST",
+                        "authorization": "JWT",
+                        "description": "Get the stored player name for the authenticated Cognito user.",
+                        "parameters": {},
                     },
                     {
                         "name": "log_sessions",

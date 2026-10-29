@@ -197,6 +197,27 @@ def test_log_cognito_sessions_creates_identity_player_and_commits_batch(monkeypa
     assert connection.committed
 
 
+def test_get_cognito_player_name_returns_stored_name(monkeypatch):
+    cursor = FakeCursor(fetchone_results=[("Ada Lovelace",)])
+    connection, _ = mock_connection(monkeypatch, cursor)
+
+    assert db.get_cognito_player_name("cognito-sub-123") == "Ada Lovelace"
+    assert cursor.queries == [
+        (
+            "SELECT name FROM players WHERE cognito_sub = %s",
+            ("cognito-sub-123",),
+        )
+    ]
+    assert connection.closed
+
+
+def test_get_cognito_player_name_returns_none_for_unknown_identity(monkeypatch):
+    cursor = FakeCursor(fetchone_results=[None])
+    mock_connection(monkeypatch, cursor)
+
+    assert db.get_cognito_player_name("unknown-sub") is None
+
+
 def test_log_cognito_sessions_reuses_player_for_cognito_identity(monkeypatch):
     cursor = FakeCursor(fetchone_results=[(12,)])
     connection, _ = mock_connection(monkeypatch, cursor)

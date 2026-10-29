@@ -9,15 +9,18 @@ const practiceTypes = [
 ]
 
 type PracticePageProps = {
+  signedInName?: string
   onAnswerChecked: (practiceType: number, isCorrect: boolean) => void
   onPracticeReset: (name: string) => Promise<boolean>
 }
 
 export function PracticePage({
+  signedInName,
   onAnswerChecked,
   onPracticeReset,
 }: PracticePageProps) {
-  const [name, setName] = useState('')
+  const [nameOverride, setNameOverride] = useState<string>()
+  const name = nameOverride ?? signedInName ?? ''
   const [practiceType, setPracticeType] = useState(1)
   const [question, setQuestion] = useState<FlashcardQuestion | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +91,7 @@ export function PracticePage({
       setSaving(false)
     }
 
-    setName('')
+    setNameOverride(undefined)
     setPracticeType(1)
     setQuestion(null)
     setError(null)
@@ -116,8 +119,8 @@ export function PracticePage({
             autoComplete="given-name"
             maxLength={255}
             placeholder="Enter your name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            value={nameOverride ?? signedInName ?? ''}
+            onChange={(event) => setNameOverride(event.target.value)}
             disabled={saving}
             required
           />

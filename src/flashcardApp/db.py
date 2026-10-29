@@ -150,6 +150,19 @@ def _get_or_create_cognito_player(
     raise RuntimeError("Could not associate the Cognito user with a player record.")
 
 
+def get_cognito_player_name(cognito_sub: str) -> str | None:
+    """Fetches the stored player name for an authenticated Cognito identity."""
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT name FROM players WHERE cognito_sub = %s",
+                (cognito_sub,),
+            )
+            player = cursor.fetchone()
+
+    return player[0] if player is not None else None
+
+
 def log_cognito_sessions(
     cognito_sub: str,
     name: str,
