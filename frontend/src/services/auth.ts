@@ -89,21 +89,3 @@ export async function getIdentityToken() {
 
   return identityToken
 }
-
-export async function getIdentityName(): Promise<string | undefined> {
-  const session = await fetchAuthSession()
-  const claims = session.tokens?.idToken?.payload
-  const name = claims?.name
-  if (typeof name === 'string' && name.trim()) {
-    return name.trim()
-  }
-
-  const givenName = claims?.given_name
-  const familyName = claims?.family_name
-  const fullName = [givenName, familyName]
-    .filter((part): part is string => typeof part === 'string' && Boolean(part.trim()))
-    .map((part) => part.trim())
-    .join(' ')
-
-  return fullName || undefined
-}

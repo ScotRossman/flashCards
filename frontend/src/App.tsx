@@ -4,7 +4,10 @@ import { Hub } from 'aws-amplify/utils'
 import './App.css'
 import { PracticePage } from './features/practice/PracticePage'
 import { StatsPage } from './features/stats/StatsPage'
-import { postAuthenticated } from './services/api'
+import {
+  getAuthenticatedPlayerName,
+  postAuthenticated,
+} from './services/api'
 import {
   authConfigurationError,
   isCognitoConfigured,
@@ -29,16 +32,20 @@ function App() {
   const [screen, setScreen] = useState<Screen>('practice')
   const [sessionProgress, setSessionProgress] = useState<SessionProgress>({})
   const [user, setUser] = useState<SignedInUser | null>(null)
+  const [identityName, setIdentityName] = useState<string>()
   const [authLoading, setAuthLoading] = useState(isCognitoConfigured)
   const [authError, setAuthError] = useState<string | null>(null)
 
   const refreshUser = useCallback(async () => {
     try {
-      setUser(await getCurrentUser())
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+      setIdentityName(await getAuthenticatedPlayerName())
       setAuthError(null)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'UserUnAuthenticatedException') {
         setUser(null)
+        setIdentityName(undefined)
         setAuthError(null)
       } else {
         setAuthError(
@@ -62,6 +69,7 @@ function App() {
         })
       } else if (payload.event === 'signedOut') {
         setUser(null)
+        setIdentityName(undefined)
       } else if (payload.event === 'signInWithRedirect_failure') {
         const eventError =
           typeof payload.data === 'object' &&
@@ -221,6 +229,7 @@ function App() {
 
       <div hidden={screen !== 'practice'}>
         <PracticePage
+          signedInName={identityName}
           onAnswerChecked={recordAnswer}
           onPracticeReset={savePracticeSession}
         />
