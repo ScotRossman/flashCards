@@ -15,6 +15,48 @@
   background: #f4f7fb;
 }
 
+.auth-bar {
+  display: flex;
+  width: min(100%, 1120px);
+  min-height: 44px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.auth-status {
+  min-width: 0;
+  color: #53647d;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.auth-status .message {
+  margin: 0;
+}
+
+.auth-button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid #3659ad;
+  border-radius: 8px;
+  background: #fff;
+  color: #3659ad;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.auth-button:hover {
+  background: #f1f5fc;
+}
+
+.auth-button:focus-visible {
+  outline: 3px solid rgb(71 104 189 / 28%);
+  outline-offset: 2px;
+}
+
 .app-navigation {
   display: flex;
   gap: 8px;
@@ -387,6 +429,15 @@
 }
 
 @media (max-width: 520px) {
+  .auth-bar {
+    align-items: flex-start;
+  }
+
+  .auth-status {
+    flex: 1;
+    text-align: left;
+  }
+
   .practice-card {
     padding: 26px 22px;
   }

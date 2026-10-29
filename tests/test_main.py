@@ -176,11 +176,17 @@ def test_lambda_handler_lists_available_api_actions():
         "get_question",
         "get_or_create_player",
         "log_session",
+        "log_sessions",
         "get_database_overview",
         "get_player_stats",
     ]
     assert actions[0]["authorization"] == "public"
-    assert all(action["authorization"] == "AWS_IAM" for action in actions[1:])
+    assert actions[3]["authorization"] == "JWT"
+    assert all(
+        action["authorization"] == "AWS_IAM"
+        for action in actions[1:]
+        if action["name"] != "log_sessions"
+    )
 
 
 @pytest.mark.parametrize(
@@ -258,6 +264,196 @@ def test_lambda_handler_logs_session(monkeypatch):
     assert response["statusCode"] == 200
     assert json.loads(response["body"]) == {"status": "session_logged"}
     assert captured_sessions == [(42, "addition", 3, 4)]
+
+
+def test_lambda_handler_logs_sessions_for_jwt_subject(monkeypatch):
+    captured = []
+
+    def mock_log_cognito_sessions(cognito_sub, name, email, sessions):
+        captured.append((cognito_sub, name, email, sessions))
+
+    monkeypatch.setattr(main, "log_cognito_sessions", mock_log_cognito_sessions)
+
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "routeKey": "POST /flashcard",
+                "authorizer": {
+                    "jwt": {
+                        "claims": {
+                            "sub": "cognito-sub-123",
+                            "email": "ada@example.com",
+                            "email_verified": "true",
+                        }
+                    }
+                },
+            },
+            "body": json.dumps(
+                {
+                    "action": "log_sessions",
+                    "name": "Ada",
+                    "sessions": [
+                        {"practice_type": "addition", "score": 3, "total": 4},
+                        {"practice_type": "division", "score": 2, "total": 3},
+                    ],
+                }
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "status": "sessions_logged",
+        "sessions": 2,
+    }
+    assert captured == [
+        (
+            "cognito-sub-123",
+            "Ada",
+            "ada@example.com",
+            [("addition", 3, 4), ("division", 2, 3)],
+        )
+    ]
+
+
+def test_lambda_handler_rejects_jwt_session_batch_without_subject():
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "routeKey": "POST /flashcard",
+                "authorizer": {"jwt": {"claims": {}}},
+            },
+            "body": json.dumps(
+                {
+                    "action": "log_sessions",
+                    "name": "Ada",
+                    "sessions": [{"practice_type": "addition", "score": 1, "total": 1}],
+                }
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 401
+    assert json.loads(response["body"]) == {
+        "error": "A valid Cognito user identity is required."
+    }
+
+
+def test_lambda_handler_rejects_iam_session_action_on_jwt_route():
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "routeKey": "POST /flashcard",
+                "authorizer": {
+                    "jwt": {
+                        "claims": {
+                            "sub": "cognito-sub-123",
+                            "email": "ada@example.com",
+                            "email_verified": "true",
+                        }
+                    }
+                },
+            },
+            "body": json.dumps(
+                {
+                    "action": "log_session",
+                    "player_id": 42,
+                    "practice_type": "addition",
+                    "score": 1,
+                    "total": 1,
+                }
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 403
+
+
+@pytest.mark.parametrize(
+    "sessions",
+    [
+        [],
+        [{"practice_type": "addition", "score": 0, "total": 0}],
+        [{"practice_type": "other", "score": 0, "total": 1}],
+        [
+            {"practice_type": "addition", "score": 1, "total": 1},
+            {"practice_type": "addition", "score": 1, "total": 1},
+        ],
+        [{"practice_type": "addition", "score": True, "total": 1}],
+        [{"practice_type": "addition", "score": 2, "total": 1}],
+    ],
+)
+def test_lambda_handler_rejects_invalid_jwt_session_batches(sessions):
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "routeKey": "POST /flashcard",
+                "authorizer": {
+                    "jwt": {
+                        "claims": {
+                            "sub": "cognito-sub-123",
+                            "email": "ada@example.com",
+                            "email_verified": "true",
+                        }
+                    }
+                },
+            },
+            "body": json.dumps(
+                {"action": "log_sessions", "name": "Ada", "sessions": sessions}
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {"sub": "cognito-sub-123", "email": "ada@example.com"},
+        {
+            "sub": "cognito-sub-123",
+            "email": "ada@example.com",
+            "email_verified": "false",
+        },
+        {
+            "sub": "cognito-sub-123",
+            "email": "x" * 321,
+            "email_verified": "true",
+        },
+    ],
+)
+def test_lambda_handler_requires_verified_cognito_email(claims):
+    response = lambda_handler(
+        {
+            "requestContext": {
+                "http": {"method": "POST"},
+                "routeKey": "POST /flashcard",
+                "authorizer": {"jwt": {"claims": claims}},
+            },
+            "body": json.dumps(
+                {
+                    "action": "log_sessions",
+                    "name": "Ada",
+                    "sessions": [{"practice_type": "addition", "score": 1, "total": 1}],
+                }
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 403
+    assert json.loads(response["body"]) == {
+        "error": "A verified Cognito email is required."
+    }
 
 
 def test_lambda_handler_returns_database_overview(monkeypatch):

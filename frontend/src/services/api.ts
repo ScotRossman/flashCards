@@ -1,3 +1,5 @@
+import { getIdentityToken } from './auth'
+
 export type FlashcardQuestion = {
   status: string
   question: string
@@ -22,4 +24,36 @@ export async function getQuestion(
   }
 
   return response.json() as Promise<FlashcardQuestion>
+}
+
+export async function postAuthenticated<TResponse>(
+  payload: Record<string, unknown>,
+): Promise<TResponse> {
+  if (!apiUrl) {
+    throw new Error('VITE_FLASHCARD_API_URL is not configured.')
+  }
+
+  const identityToken = await getIdentityToken()
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${identityToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const body: unknown = await response.json()
+    const message =
+      typeof body === 'object' &&
+      body !== null &&
+      'error' in body &&
+      typeof body.error === 'string'
+        ? body.error
+        : `Authorized API request failed (${response.status}).`
+    throw new Error(message)
+  }
+
+  return response.json() as Promise<TResponse>
 }
