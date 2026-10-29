@@ -114,6 +114,71 @@ def log_session(player_id: int, practice_type: str, score: int, total: int) -> N
         connection.commit()
 
 
+def _get_or_create_cognito_player(
+    cursor, cognito_sub: str, name: str, email: str
+) -> int:
+    cursor.execute(
+        "SELECT id FROM players WHERE cognito_sub = %s",
+        (cognito_sub,),
+    )
+    player = cursor.fetchone()
+    if player is not None:
+        cursor.execute(
+            "UPDATE players SET email = %s WHERE cognito_sub = %s",
+            (email, cognito_sub),
+        )
+        return int(player[0])
+
+    suffixes = ("", f" ({cognito_sub[:8]})", f" ({cognito_sub[:64]})")
+    for suffix in suffixes:
+        player_name = f"{name[:255 - len(suffix)]}{suffix}"
+        cursor.execute(
+            """
+            INSERT INTO players (name, email, cognito_sub) VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+            """,
+            (player_name, email, cognito_sub),
+        )
+        cursor.execute(
+            "SELECT id FROM players WHERE cognito_sub = %s",
+            (cognito_sub,),
+        )
+        player = cursor.fetchone()
+        if player is not None:
+            return int(player[0])
+
+    raise RuntimeError("Could not associate the Cognito user with a player record.")
+
+
+def log_cognito_sessions(
+    cognito_sub: str,
+    name: str,
+    email: str,
+    sessions: list[tuple[str, int, int]],
+) -> None:
+    """Associates and logs a batch of sessions for an authenticated Cognito user."""
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            player_id = _get_or_create_cognito_player(cursor, cognito_sub, name, email)
+            for practice_type, score, total in sessions:
+                cursor.execute(
+                    """
+                    INSERT INTO sessions (
+                        player_id, practice_type, score, total_questions, `timestamp`
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        player_id,
+                        practice_type,
+                        score,
+                        total,
+                        datetime.now(),
+                    ),
+                )
+        connection.commit()
+
+
 def get_leaderboard() -> list[tuple]:
     """Fetches past sessions joined with player names for display."""
     with _connect() as connection:

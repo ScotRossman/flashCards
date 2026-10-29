@@ -9,8 +9,8 @@ const practiceTypes = [
 ]
 
 type PracticePageProps = {
-  onAnswerChecked: (isCorrect: boolean) => void
-  onPracticeReset: () => void
+  onAnswerChecked: (practiceType: number, isCorrect: boolean) => void
+  onPracticeReset: (name: string) => Promise<boolean>
 }
 
 export function PracticePage({
@@ -26,6 +26,9 @@ export function PracticePage({
   const [answer, setAnswer] = useState('')
   const [answerError, setAnswerError] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   async function loadQuestion() {
     setLoading(true)
@@ -64,11 +67,27 @@ export function PracticePage({
     setAnswerError(null)
     setIsCorrect(correct)
     setAnswerChecked(true)
-    onAnswerChecked(correct)
+    onAnswerChecked(practiceType, correct)
   }
 
-  function resetApp() {
-    onPracticeReset()
+  async function resetApp() {
+    setSaving(true)
+    setSaveError(null)
+    setSaveMessage(null)
+    let saved: boolean
+    try {
+      saved = await onPracticeReset(name.trim())
+    } catch (requestError: unknown) {
+      setSaveError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Could not save your practice session.',
+      )
+      return
+    } finally {
+      setSaving(false)
+    }
+
     setName('')
     setPracticeType(1)
     setQuestion(null)
@@ -78,6 +97,7 @@ export function PracticePage({
     setAnswer('')
     setAnswerError(null)
     setIsCorrect(null)
+    setSaveMessage(saved ? 'Practice session saved.' : 'Practice reset.')
   }
 
   return (
@@ -98,6 +118,7 @@ export function PracticePage({
             placeholder="Enter your name"
             value={name}
             onChange={(event) => setName(event.target.value)}
+            disabled={saving}
             required
           />
 
@@ -107,6 +128,7 @@ export function PracticePage({
             name="practiceType"
             value={practiceType}
             onChange={(event) => setPracticeType(Number(event.target.value))}
+            disabled={saving}
           >
             {practiceTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -115,13 +137,24 @@ export function PracticePage({
             ))}
           </select>
 
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={loading || saving}>
             {loading ? 'Loading question...' : 'Start practicing'}
           </button>
-           <button type="button" onClick={resetApp} disabled={loading}>
-             Quit practice
+          <button type="button" onClick={resetApp} disabled={loading || saving}>
+            {saving ? 'Saving session...' : 'Quit practice'}
           </button>
         </form>
+
+        {saveError && (
+          <p className="message error" role="alert">
+            {saveError}
+          </p>
+        )}
+        {saveMessage && (
+          <p className="message" role="status">
+            {saveMessage}
+          </p>
+        )}
 
         {error && (
           <p className="message error" role="alert">

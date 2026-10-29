@@ -17,6 +17,7 @@ try:
     from .db import (
         get_database_overview,
         get_or_create_player,
+        log_cognito_sessions,
         get_player_stats,
         log_session,
     )
@@ -24,6 +25,7 @@ except (ImportError, SyntaxError, ValueError):
     from db import (
         get_database_overview,
         get_or_create_player,
+        log_cognito_sessions,
         get_player_stats,
         log_session,
     )
@@ -120,6 +122,100 @@ def lambda_handler(event, context):
         if not isinstance(body, dict):
             return _json_response(400, {"error": "Request body must be a JSON object."})
         action = body.get("action")
+        route_key = request_context.get("routeKey")
+
+        if action == "log_sessions":
+            if route_key != "POST /flashcard":
+                return _json_response(
+                    403, {"error": "Session batches require Cognito authorization."}
+                )
+
+            authorizer = request_context.get("authorizer") or {}
+            jwt_context = authorizer.get("jwt") or {}
+            claims = jwt_context.get("claims") or {}
+            cognito_sub = claims.get("sub")
+            email = claims.get("email")
+            email_verified = claims.get("email_verified")
+            if (
+                not isinstance(cognito_sub, str)
+                or not cognito_sub.strip()
+                or len(cognito_sub) > 255
+            ):
+                return _json_response(
+                    401, {"error": "A valid Cognito user identity is required."}
+                )
+            if (
+                not isinstance(email, str)
+                or not email.strip()
+                or len(email) > 320
+                or email_verified not in (True, "true")
+            ):
+                return _json_response(
+                    403, {"error": "A verified Cognito email is required."}
+                )
+
+            name = body.get("name")
+            sessions = body.get("sessions")
+            if not isinstance(name, str) or not name.strip():
+                return _json_response(400, {"error": "Player name is required."})
+            name = name.strip()
+            if len(name) > 255:
+                return _json_response(
+                    400, {"error": "Player name must be 255 characters or fewer."}
+                )
+            if (
+                not isinstance(sessions, list)
+                or not sessions
+                or len(sessions) > len(constants.practice_type)
+            ):
+                return _json_response(
+                    400, {"error": "Practice sessions must contain 1 to 4 entries."}
+                )
+
+            validated_sessions = []
+            seen_types = set()
+            for session in sessions:
+                if not isinstance(session, dict):
+                    return _json_response(
+                        400, {"error": "Practice session entries must be objects."}
+                    )
+                practice_type = session.get("practice_type")
+                score = session.get("score")
+                total = session.get("total")
+                if (
+                    not isinstance(practice_type, str)
+                    or practice_type not in constants.practice_type.values()
+                    or practice_type in seen_types
+                ):
+                    return _json_response(
+                        400, {"error": "Practice type is invalid or duplicated."}
+                    )
+                if (
+                    not isinstance(score, int)
+                    or isinstance(score, bool)
+                    or not isinstance(total, int)
+                    or isinstance(total, bool)
+                    or score < 0
+                    or total <= 0
+                    or total < score
+                ):
+                    return _json_response(400, {"error": "Session scores are invalid."})
+                seen_types.add(practice_type)
+                validated_sessions.append((practice_type, score, total))
+
+            log_cognito_sessions(cognito_sub, name, email.strip(), validated_sessions)
+            return _json_response(
+                200, {"status": "sessions_logged", "sessions": len(validated_sessions)}
+            )
+
+        if route_key == "POST /flashcard":
+            return _json_response(
+                403,
+                {
+                    "error": "This Cognito route only accepts authenticated session batches."
+                },
+            )
+
         if action == "get_or_create_player":
             name = body.get("name")
             if not isinstance(name, str) or not name.strip():
@@ -229,6 +325,24 @@ def lambda_handler(event, context):
                             },
                             "score": {"type": "integer", "required": True},
                             "total": {"type": "integer", "required": True},
+                        },
+                    },
+                    {
+                        "name": "log_sessions",
+                        "method": "POST",
+                        "authorization": "JWT",
+                        "description": "Save grouped sessions for the authenticated Cognito user.",
+                        "parameters": {
+                            "name": {"type": "string", "required": True},
+                            "sessions": {
+                                "type": "array",
+                                "required": True,
+                                "items": {
+                                    "practice_type": "string",
+                                    "score": "integer",
+                                    "total": "integer",
+                                },
+                            },
                         },
                     },
                     {

@@ -72,9 +72,7 @@ export function StatsPage({
             </div>
           </dl>
           <p className="stats-note" role="status">
-            Database-wide stats are not connected to the React app yet. The
-            existing stats endpoint requires authorization that is safe for a
-            browser app.
+            Database-backed stats are not connected to the React app yet.
           </p>
         </section>
       </div>

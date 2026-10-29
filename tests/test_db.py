@@ -171,6 +171,65 @@ def test_log_session_inserts_parameters_and_commits(monkeypatch):
     assert connection.committed
 
 
+def test_log_cognito_sessions_creates_identity_player_and_commits_batch(monkeypatch):
+    cursor = FakeCursor(fetchone_results=[None, (24,)])
+    connection, _ = mock_connection(monkeypatch, cursor)
+
+    db.log_cognito_sessions(
+        "cognito-sub-123",
+        "Ada",
+        "ada@example.com",
+        [("addition", 3, 4), ("division", 2, 3)],
+    )
+
+    assert cursor.queries[0] == (
+        "SELECT id FROM players WHERE cognito_sub = %s",
+        ("cognito-sub-123",),
+    )
+    assert "INSERT INTO players (name, email, cognito_sub)" in cursor.queries[1][0]
+    assert cursor.queries[1][1] == ("Ada", "ada@example.com", "cognito-sub-123")
+    assert cursor.queries[2] == (
+        "SELECT id FROM players WHERE cognito_sub = %s",
+        ("cognito-sub-123",),
+    )
+    assert cursor.queries[3][1][:4] == (24, "addition", 3, 4)
+    assert cursor.queries[4][1][:4] == (24, "division", 2, 3)
+    assert connection.committed
+
+
+def test_log_cognito_sessions_reuses_player_for_cognito_identity(monkeypatch):
+    cursor = FakeCursor(fetchone_results=[(12,)])
+    connection, _ = mock_connection(monkeypatch, cursor)
+
+    db.log_cognito_sessions(
+        "cognito-sub-123", "New name", "ada@example.com", [("addition", 1, 1)]
+    )
+
+    assert len(cursor.queries) == 3
+    assert "UPDATE players SET email" in cursor.queries[1][0]
+    assert cursor.queries[1][1] == ("ada@example.com", "cognito-sub-123")
+    assert cursor.queries[2][1][:4] == (12, "addition", 1, 1)
+    assert connection.committed
+
+
+def test_log_cognito_sessions_uses_distinct_player_name_on_name_conflict(monkeypatch):
+    cursor = FakeCursor(fetchone_results=[None, None, (25,)])
+    connection, _ = mock_connection(monkeypatch, cursor)
+
+    db.log_cognito_sessions(
+        "12345678-sub", "Ada", "ada@example.com", [("addition", 1, 1)]
+    )
+
+    assert cursor.queries[1][1] == ("Ada", "ada@example.com", "12345678-sub")
+    assert cursor.queries[3][1] == (
+        "Ada (12345678)",
+        "ada@example.com",
+        "12345678-sub",
+    )
+    assert cursor.queries[5][1][:4] == (25, "addition", 1, 1)
+    assert connection.committed
+
+
 def test_get_leaderboard_returns_mysql_rows(monkeypatch):
     rows = [("Ada", "addition", 3, 4, "2026-10-16 12:00:00")]
     cursor = FakeCursor(fetchall_result=rows)

@@ -25,7 +25,7 @@ A Python flashcard application for studying and retaining information, starting 
 
 - **Interactive terminal study sessions:** create, review, and manage flashcards from the command line.
 - **Streamlit web UI:** practice math flashcards and view database-backed practice statistics.
-- **React web UI:** frontend scaffold for a separate browser-based interface; implementation is planned.
+- **React web UI:** browser-based practice interface with Cognito managed sign-in and an authenticated API client.
 - **Installable command:** installs a `flashcards` command via the project's console-script entry point.
 - **Editable installs:** code changes take effect on the next run without reinstalling.
 - **Automated quality checks:** formatting with `black`, tests with `pytest` and `pytest-cov`.
@@ -137,10 +137,19 @@ Grant the Streamlit identity `execute-api:Invoke` on the ARN printed by the
 JWT-authorized `/flashcard` POST route. For Streamlit Community Cloud, add the
 identity's credentials under **App → Settings → Secrets**:
 
+React sends the Cognito ID token to this identity-only route so API Gateway
+validates the signed `sub`, `email`, and `email_verified` claims. When the user
+selects **Quit practice**, React sends one authenticated `log_sessions` POST
+containing totals grouped by practice type; Lambda stores the batch in one
+database transaction. A failed save keeps the current practice totals so the
+user can retry. The score totals originate in the browser, so this records
+user-reported results and should not be treated as tamper-proof scoring.
+
 The Lambda POST action `get_player_stats` accepts a positive `player_id` and
 returns that player's lifetime totals and totals grouped by practice type. It
-returns `404` when the player ID is not found. It is available on either
-protected POST route.
+returns `404` when the player ID is not found. It remains available through the
+IAM-protected Streamlit route; the React JWT route only accepts the
+identity-bound `log_sessions` action.
 
 To see the API actions supported by the deployed Lambda, request
 `GET <API_URL>?action=capabilities`, replacing `<API_URL>` with the API URL
@@ -183,22 +192,42 @@ needed for Streamlit database writes.
 
 ---
 
-### React web UI (planned)
+### React web UI
 
-The `frontend/` directory is the starting structure for a React frontend. It is
-currently a scaffold; React dependencies, application components, and hosting
-configuration have not yet been added. The intended hosting direction is a
-static frontend host such as AWS Amplify Hosting, calling the existing API
-Gateway/Lambda backend. Before the browser UI makes protected write requests,
-design browser-appropriate API authorization; never put AWS access keys or
-database credentials in frontend code. See the [AWS Amplify Hosting
-guide](https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html).
+The React app uses Cognito managed login with the OAuth authorization-code
+grant and PKCE. It uses a public app client (no client secret) and sends the
+Cognito access token as a Bearer token for authenticated `POST /flashcard`
+requests. No AWS credentials or database credentials belong in browser code.
+
+Copy `frontend/.env.example` to `frontend/.env.local` and set the API URL,
+Cognito user pool ID, public app client ID, and Cognito hosted-login domain.
+The Cognito app client must have OAuth authorization-code grant enabled,
+`openid`, `email`, and `profile` scopes, and callback/sign-out URLs matching the
+frontend origin exactly. For local Vite development, add
+`http://localhost:5173` to both URL lists; add the deployed frontend origin
+before hosting. Configure a Cognito user-pool domain if one is not already
+available.
+
+Run the app locally:
+
+```powershell
+Set-Location .\frontend
+npm install
+npm run dev
+```
+
+The API client can attach the access token to protected POST requests. The
+React app currently does not write player/session data: the existing Lambda
+actions accept caller-supplied player IDs and do not yet bind them to the
+authenticated Cognito subject. Implement that ownership check before connecting
+those database actions to the browser. The frontend can be deployed separately
+to a static host such as [AWS Amplify Hosting](https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html).
 
 ## 🧱 Project Structure
 
 ```text
 flashCards/
-├── frontend/                 # React UI scaffold (implementation planned)
+├── frontend/                 # React UI, Cognito authentication, and API client
 │   ├── public/
 │   └── src/
 │       ├── app/
@@ -227,7 +256,7 @@ flashCards/
 | Core         | `pip install -e .`         | `click`, `pydantic`                            |
 | Dev          | `pip install -e ".[dev]"`  | `pytest`, `black`, `flake8`, `boto3`            |
 | Streamlit UI | `pip install -e ".[web]"`  | `streamlit`, `PyMySQL`, `boto3`                |
-| React UI     | Not set up yet             | React toolchain and dependencies are not added |
+| React UI     | `cd frontend; npm install`  | Vite, React, TypeScript, AWS Amplify Auth |
 
 ### Run the tests
 
@@ -270,8 +299,9 @@ GitHub Actions runs on every push and pull request to the `dev` branch:
 
 - [x] Command-line interface
 - [x] Streamlit web UI
-- [ ] React web UI
-- [ ] Host the React UI and configure browser-safe API authorization
+- [x] React practice UI and Cognito sign-in
+- [ ] Bind player records to Cognito identities before enabling database writes from React
+- [ ] Host the React UI
 - [ ] Raise test coverage across `main.py` and `operations.py`
 
 ---
