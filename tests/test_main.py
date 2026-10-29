@@ -278,7 +278,6 @@ def test_lambda_handler_logs_sessions_for_jwt_subject(monkeypatch):
         {
             "requestContext": {
                 "http": {"method": "POST"},
-                "routeKey": "POST /flashcard",
                 "authorizer": {
                     "jwt": {
                         "claims": {
@@ -318,6 +317,47 @@ def test_lambda_handler_logs_sessions_for_jwt_subject(monkeypatch):
     ]
 
 
+def test_lambda_handler_logs_sessions_from_http_api_v1_claims(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        main,
+        "log_cognito_sessions",
+        lambda cognito_sub, name, email, sessions: captured.append(
+            (cognito_sub, name, email, sessions)
+        ),
+    )
+
+    response = lambda_handler(
+        {
+            "version": "1.0",
+            "httpMethod": "POST",
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "cognito-sub-v1",
+                        "email": "ada@example.com",
+                        "email_verified": "true",
+                    },
+                    "scopes": None,
+                }
+            },
+            "body": json.dumps(
+                {
+                    "action": "log_sessions",
+                    "name": "Ada",
+                    "sessions": [{"practice_type": "addition", "score": 1, "total": 1}],
+                }
+            ),
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert captured == [
+        ("cognito-sub-v1", "Ada", "ada@example.com", [("addition", 1, 1)])
+    ]
+
+
 def test_lambda_handler_rejects_jwt_session_batch_without_subject():
     response = lambda_handler(
         {
@@ -339,7 +379,7 @@ def test_lambda_handler_rejects_jwt_session_batch_without_subject():
 
     assert response["statusCode"] == 401
     assert json.loads(response["body"]) == {
-        "error": "A valid Cognito user identity is required."
+        "error": "Session batches require Cognito authorization."
     }
 
 

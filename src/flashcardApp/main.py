@@ -122,25 +122,20 @@ def lambda_handler(event, context):
         if not isinstance(body, dict):
             return _json_response(400, {"error": "Request body must be a JSON object."})
         action = body.get("action")
-        route_key = request_context.get("routeKey")
+        authorizer = request_context.get("authorizer") or {}
+        jwt_context = authorizer.get("jwt") or {}
+        claims = jwt_context.get("claims") or authorizer.get("claims") or {}
+        cognito_sub = claims.get("sub") if isinstance(claims, dict) else None
 
         if action == "log_sessions":
-            if route_key != "POST /flashcard":
+            if not isinstance(cognito_sub, str) or not cognito_sub.strip():
                 return _json_response(
-                    403, {"error": "Session batches require Cognito authorization."}
+                    401, {"error": "Session batches require Cognito authorization."}
                 )
 
-            authorizer = request_context.get("authorizer") or {}
-            jwt_context = authorizer.get("jwt") or {}
-            claims = jwt_context.get("claims") or {}
-            cognito_sub = claims.get("sub")
             email = claims.get("email")
             email_verified = claims.get("email_verified")
-            if (
-                not isinstance(cognito_sub, str)
-                or not cognito_sub.strip()
-                or len(cognito_sub) > 255
-            ):
+            if len(cognito_sub) > 255:
                 return _json_response(
                     401, {"error": "A valid Cognito user identity is required."}
                 )
@@ -208,7 +203,7 @@ def lambda_handler(event, context):
                 200, {"status": "sessions_logged", "sessions": len(validated_sessions)}
             )
 
-        if route_key == "POST /flashcard":
+        if isinstance(cognito_sub, str) and cognito_sub.strip():
             return _json_response(
                 403,
                 {
